@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
-using Modeler.Api.Domain;
+using Modeler.Api.Domain; 
+using System.Reflection.Emit;
 
 namespace Modeler.Api.Persistence;
 
@@ -31,6 +32,10 @@ public sealed class ModelerDbContext : DbContext
     public DbSet<ScenarioDecision> ScenarioDecisions => Set<ScenarioDecision>();
     public DbSet<ScenarioDecisionOption> ScenarioDecisionOptions => Set<ScenarioDecisionOption>();
     public DbSet<DecisionOptionFactChange> DecisionOptionFactChanges => Set<DecisionOptionFactChange>();
+
+    public DbSet<TriggerDefinition> Triggers => Set<TriggerDefinition>();
+    public DbSet<EventDefinition> Events => Set<EventDefinition>();
+    public DbSet<EventTriggerLink> EventTriggerLinks => Set<EventTriggerLink>();
 
     protected override void OnModelCreating(ModelBuilder mb)
     {
@@ -192,6 +197,38 @@ public sealed class ModelerDbContext : DbContext
             .WithMany()
             .HasForeignKey(x => x.FactId)
             .OnDelete(DeleteBehavior.Restrict);
+
+
+        mb.Entity<TriggerDefinition>()
+        .HasIndex(x => x.TriggerKey)
+        .IsUnique();
+
+        mb.Entity<EventDefinition>()
+            .HasIndex(x => x.EventKey)
+            .IsUnique();
+
+        mb.Entity<EventTriggerLink>()
+            .HasIndex(x => new { x.EventId, x.TriggerId })
+            .IsUnique();
+
+        mb.Entity<EventTriggerLink>()
+            .HasOne(x => x.Event)
+            .WithMany()
+            .HasForeignKey(x => x.EventId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        mb.Entity<EventTriggerLink>()
+            .HasOne(x => x.Trigger)
+            .WithMany()
+            .HasForeignKey(x => x.TriggerId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        mb.Entity<Scenario>()
+        .HasOne(x => x.Trigger)
+        .WithMany()
+        .HasForeignKey(x => x.TriggerId)
+        .OnDelete(DeleteBehavior.Restrict);
+
     }
 
     public override int SaveChanges()

@@ -17,4 +17,7 @@ public sealed class Scenario : BaseEntity
 
     [MaxLength(150)]
     public string? OwnerSubdomain { get; set; }
+    public int? TriggerId { get; set; }
+    public TriggerDefinition? Trigger { get; set; }
+
 }

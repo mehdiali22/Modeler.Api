@@ -5,29 +5,6 @@ using Modeler.Api.Persistence;
 
 namespace Modeler.Api.Controllers;
 
-public sealed record ExportBundle(
-    DateTime ExportedAt,
-    List<DictionaryTerm> DictionaryTerms,
-    List<Artifact> Artifacts,
-    List<Fact> Facts,
-    List<FactEnumValue> FactEnumValues,
-    List<Condition> Conditions,
-    List<ConditionFactUsed> ConditionFactUsed,
-    List<Actor> Actors,
-    List<Actions> Actions,
-    List<Process> Processes,
-    List<SubProcess> SubProcesses,
-    List<Stage> Stages,
-    List<Scenario> Scenarios,
-    List<ScenarioPrecondition> ScenarioPreconditions,
-    List<ScenarioInputArtifact> ScenarioInputArtifacts,
-    List<ScenarioFactChange> ScenarioFactChanges,
-    List<ScenarioDecision> ScenarioDecisions,
-    List<ScenarioDecisionOption> ScenarioDecisionOptions,
-    List<DecisionOptionFactChange> DecisionOptionFactChanges
-);
-
-public sealed record ValidationIssue(string Entity, int? EntityId, string Message);
 
 [ApiController]
 [Route("api/tools")]
@@ -53,6 +30,12 @@ public sealed class ToolsController : ControllerBase
             ConditionFactUsed: await _db.ConditionFactUsed.AsNoTracking().ToListAsync(),
             Actors: await _db.Actors.AsNoTracking().ToListAsync(),
             Actions: await _db.Actions.AsNoTracking().ToListAsync(),
+
+            // NEW
+            Triggers: await _db.Triggers.AsNoTracking().ToListAsync(),
+            Events: await _db.Events.AsNoTracking().ToListAsync(),
+            EventTriggerLinks: await _db.EventTriggerLinks.AsNoTracking().ToListAsync(),
+
             Processes: await _db.Processes.AsNoTracking().ToListAsync(),
             SubProcesses: await _db.SubProcesses.AsNoTracking().ToListAsync(),
             Stages: await _db.Stages.AsNoTracking().ToListAsync(),
@@ -68,13 +51,13 @@ public sealed class ToolsController : ControllerBase
         return bundle;
     }
 
-    // mode=replace|upsert
+    // mode=replace|upsert  (also accepts UI: overwrite|merge)
     [HttpPost("import")]
     public async Task<ActionResult> Import([FromQuery] string? mode, [FromBody] ExportBundle input)
     {
         mode = (mode ?? "upsert").Trim().ToLowerInvariant();
 
-        // UI compatibility: merge|overwrite
+        // UI compatibility
         mode = mode switch
         {
             "merge" => "upsert",
@@ -87,6 +70,9 @@ public sealed class ToolsController : ControllerBase
             await ReplaceAll(input);
             return Ok();
         }
+
+        if (mode != "upsert")
+            return BadRequest(new { error = "mode must be replace|upsert (also accepts overwrite|merge)" });
 
         // upsert ساده (بدون حفظ id های خاص برای insert جدید)
         UpsertMany(_db.DictionaryTerms, input.DictionaryTerms);
@@ -101,6 +87,11 @@ public sealed class ToolsController : ControllerBase
 
         UpsertMany(_db.Actors, input.Actors);
         UpsertMany(_db.Actions, input.Actions);
+
+        // NEW: parents first
+        UpsertMany(_db.Triggers, input.Triggers);
+        UpsertMany(_db.Events, input.Events);
+
         UpsertMany(_db.Processes, input.Processes);
         UpsertMany(_db.SubProcesses, input.SubProcesses);
         UpsertMany(_db.Stages, input.Stages);
@@ -115,6 +106,9 @@ public sealed class ToolsController : ControllerBase
         UpsertMany(_db.ScenarioDecisions, input.ScenarioDecisions);
         UpsertMany(_db.ScenarioDecisionOptions, input.ScenarioDecisionOptions);
         UpsertMany(_db.DecisionOptionFactChanges, input.DecisionOptionFactChanges);
+
+        // NEW: links last (needs parent ids)
+        UpsertMany(_db.EventTriggerLinks, input.EventTriggerLinks);
 
         await _db.SaveChangesAsync();
         return Ok();
@@ -131,6 +125,12 @@ public sealed class ToolsController : ControllerBase
         var scenarios = await _db.Scenarios.AsNoTracking().ToListAsync();
         var actors = await _db.Actors.AsNoTracking().ToListAsync();
         var actions = await _db.Actions.AsNoTracking().ToListAsync();
+
+        // NEW
+        var triggers = await _db.Triggers.AsNoTracking().ToListAsync();
+        var events = await _db.Events.AsNoTracking().ToListAsync();
+        var links = await _db.EventTriggerLinks.AsNoTracking().ToListAsync();
+
         var opts = await _db.ScenarioDecisionOptions.AsNoTracking().ToListAsync();
         var optFcs = await _db.DecisionOptionFactChanges.AsNoTracking().ToListAsync();
         var scFcs = await _db.ScenarioFactChanges.AsNoTracking().ToListAsync();
@@ -150,6 +150,10 @@ public sealed class ToolsController : ControllerBase
         var actorIds = actors.Select(x => x.Id).ToHashSet();
         var optIds = opts.Select(x => x.Id).ToHashSet();
         var scDecisionIds = scDecisions.Select(x => x.Id).ToHashSet();
+
+        // NEW
+        var triggerIds = triggers.Select(x => x.Id).ToHashSet();
+        var eventIds = events.Select(x => x.Id).ToHashSet();
 
         var issues = new List<ValidationIssue>();
 
@@ -229,6 +233,15 @@ public sealed class ToolsController : ControllerBase
                 issues.Add(new("DecisionOptionFactChange", ofc.Id, $"factId '{ofc.FactId}' not found"));
         }
 
+        // NEW: EventTriggerLinks
+        foreach (var l in links)
+        {
+            if (!eventIds.Contains(l.EventId))
+                issues.Add(new("EventTriggerLink", l.Id, $"eventId '{l.EventId}' not found"));
+            if (!triggerIds.Contains(l.TriggerId))
+                issues.Add(new("EventTriggerLink", l.Id, $"triggerId '{l.TriggerId}' not found"));
+        }
+
         return issues;
     }
 
@@ -242,10 +255,19 @@ public sealed class ToolsController : ControllerBase
         _db.ScenarioInputArtifacts.RemoveRange(_db.ScenarioInputArtifacts);
         _db.ScenarioPreconditions.RemoveRange(_db.ScenarioPreconditions);
         _db.ConditionFactUsed.RemoveRange(_db.ConditionFactUsed);
+
+        // NEW: children first
+        _db.EventTriggerLinks.RemoveRange(_db.EventTriggerLinks);
+
         _db.Scenarios.RemoveRange(_db.Scenarios);
         _db.Stages.RemoveRange(_db.Stages);
         _db.SubProcesses.RemoveRange(_db.SubProcesses);
         _db.Processes.RemoveRange(_db.Processes);
+
+        // NEW: parents after links
+        _db.Events.RemoveRange(_db.Events);
+        _db.Triggers.RemoveRange(_db.Triggers);
+
         _db.Actions.RemoveRange(_db.Actions);
         _db.Actors.RemoveRange(_db.Actors);
         _db.Conditions.RemoveRange(_db.Conditions);
@@ -269,6 +291,11 @@ public sealed class ToolsController : ControllerBase
 
         await InsertWithIdentity("Actors", input.Actors);
         await InsertWithIdentity("Actions", input.Actions);
+
+        // NEW: parents first
+        await InsertWithIdentity("Triggers", input.Triggers);
+        await InsertWithIdentity("Events", input.Events);
+
         await InsertWithIdentity("Processes", input.Processes);
         await InsertWithIdentity("SubProcesses", input.SubProcesses);
         await InsertWithIdentity("Stages", input.Stages);
@@ -282,6 +309,9 @@ public sealed class ToolsController : ControllerBase
         await InsertWithIdentity("ScenarioDecisions", input.ScenarioDecisions);
         await InsertWithIdentity("ScenarioDecisionOptions", input.ScenarioDecisionOptions);
         await InsertWithIdentity("DecisionOptionFactChanges", input.DecisionOptionFactChanges);
+
+        // NEW: links last (needs parents)
+        await InsertWithIdentity("EventTriggerLinks", input.EventTriggerLinks);
 
         await tx.CommitAsync();
     }
@@ -324,3 +354,32 @@ public sealed class ToolsController : ControllerBase
         }
     }
 }
+public sealed record ExportBundle(
+    DateTime ExportedAt,
+    List<DictionaryTerm> DictionaryTerms,
+    List<Artifact> Artifacts,
+    List<Fact> Facts,
+    List<FactEnumValue> FactEnumValues,
+    List<Condition> Conditions,
+    List<ConditionFactUsed> ConditionFactUsed,
+    List<Actor> Actors,
+    List<Actions> Actions,
+
+    // NEW
+    List<TriggerDefinition> Triggers,
+    List<EventDefinition> Events,
+    List<EventTriggerLink> EventTriggerLinks,
+
+    List<Process> Processes,
+    List<SubProcess> SubProcesses,
+    List<Stage> Stages,
+    List<Scenario> Scenarios,
+    List<ScenarioPrecondition> ScenarioPreconditions,
+    List<ScenarioInputArtifact> ScenarioInputArtifacts,
+    List<ScenarioFactChange> ScenarioFactChanges,
+    List<ScenarioDecision> ScenarioDecisions,
+    List<ScenarioDecisionOption> ScenarioDecisionOptions,
+    List<DecisionOptionFactChange> DecisionOptionFactChanges
+);
+
+public sealed record ValidationIssue(string Entity, int? EntityId, string Message);

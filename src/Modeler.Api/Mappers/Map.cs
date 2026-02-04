@@ -1,4 +1,4 @@
-using Modeler.Api.Domain;
+using Modeler.Api.Domain; 
 using Modeler.Api.Dtos;
 
 namespace Modeler.Api.Mappers;
@@ -304,4 +304,50 @@ public static class Map
         Op = d.Op,
         Value = d.Value
     };
+    public static TriggerDefinitionDto ToDto(this TriggerDefinition e) => new()
+    {
+        Id = e.Id,
+        TriggerKey = e.TriggerKey,
+        TitleFa = e.TitleFa,
+        Description = e.Description
+    };
+
+    public static TriggerDefinition ToEntity(this TriggerDefinitionDto d) => new()
+    {
+        Id = d.Id,
+        TriggerKey = d.TriggerKey,
+        TitleFa = d.TitleFa,
+        Description = d.Description
+    };
+
+    public static EventDefinitionDto ToDto(this EventDefinition e) => new()
+    {
+        Id = e.Id,
+        EventKey = e.EventKey,
+        TitleFa = e.TitleFa,
+        Description = e.Description
+    };
+
+    public static EventDefinition ToEntity(this EventDefinitionDto d) => new()
+    {
+        Id = d.Id,
+        EventKey = d.EventKey,
+        TitleFa = d.TitleFa,
+        Description = d.Description
+    };
+
+    public static EventTriggerLinkDto ToDto(this EventTriggerLink e) => new()
+    {
+        Id = e.Id,
+        EventId = e.EventId,
+        TriggerId = e.TriggerId
+    };
+
+    public static EventTriggerLink ToEntity(this EventTriggerLinkDto d) => new()
+    {
+        Id = d.Id,
+        EventId = d.EventId,
+        TriggerId = d.TriggerId
+    };
+
 }
