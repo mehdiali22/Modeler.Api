@@ -1,4 +1,4 @@
-using Modeler.Api.Domain;
+﻿using Modeler.Api.Domain;
 
 namespace Modeler.Api.Dtos;
 
@@ -8,15 +8,27 @@ public sealed class ScenarioDto
     public string ScenarioKey { get; set; } = default!;
     public string? TitleFa { get; set; }
     public string? Description { get; set; }
+
     public int StageId { get; set; }
     public string? OwnerSubdomain { get; set; }
 
-    // NEW (UI expects)
     public int? TriggerId { get; set; }
 
-    // NEW (flattened from ScenarioPreconditions)
+    // UI: preconditionIds
     public List<int> PreconditionIds { get; set; } = new();
 
-    // NEW (flattened from ScenarioFactChanges)
+    // UI: factChanges (scenario-level)
     public List<ScenarioFactChangeDto> FactChanges { get; set; } = new();
+
+    // UI: producedEventIds (scenario-level)
+    public List<int> ProducedEventIds { get; set; } = new();
+
+    // UI: actions (scenario-level)
+    public List<ScenarioActionRefDto> Actions { get; set; } = new();
+}
+
+public sealed class ScenarioActionRefDto
+{
+    public int ActionId { get; set; }
+    public string? ParamsJson { get; set; }
 }

@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Modeler.Api.Domain;
 using Modeler.Api.Dtos;
@@ -38,20 +38,45 @@ public sealed class ScenarioController : ControllerBase
             .Where(x => scenarioIds.Contains(x.ScenarioId))
             .ToListAsync();
 
-        // group for fast lookup
+        var pes = await _db.ScenarioProducedEvents
+            .AsNoTracking()
+            .Where(x => scenarioIds.Contains(x.ScenarioId))
+            .ToListAsync();
+
+        var acts = await _db.ScenarioActions
+            .AsNoTracking()
+            .Where(x => scenarioIds.Contains(x.ScenarioId))
+            .ToListAsync();
+
         var preByScenario = pres
             .GroupBy(x => x.ScenarioId)
             .ToDictionary(g => g.Key, g => g.Select(x => x.ConditionId).ToList());
 
         var fcByScenario = fcs
             .GroupBy(x => x.ScenarioId)
-            .ToDictionary(g => g.Key, g => g.Select(ToDto).ToList());
+            .ToDictionary(g => g.Key, g => g.Select(ToScenarioFactChangeDto).ToList());
+
+        var peByScenario = pes
+            .GroupBy(x => x.ScenarioId)
+            .ToDictionary(g => g.Key, g => g.Select(x => x.EventId).Distinct().ToList());
+
+        var actByScenario = acts
+            .GroupBy(x => x.ScenarioId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.Select(x => new ScenarioActionRefDto
+                {
+                    ActionId = x.ActionId,
+                    ParamsJson = x.ParamsJson
+                }).ToList()
+            );
 
         var result = new List<ScenarioDto>(scenarios.Count);
 
         foreach (var s in scenarios)
         {
             var dto = Map.ToDto(s);
+
             dto.TriggerId = s.TriggerId;
 
             dto.PreconditionIds = preByScenario.TryGetValue(s.Id, out var preList)
@@ -61,6 +86,14 @@ public sealed class ScenarioController : ControllerBase
             dto.FactChanges = fcByScenario.TryGetValue(s.Id, out var fcList)
                 ? fcList
                 : new List<ScenarioFactChangeDto>();
+
+            dto.ProducedEventIds = peByScenario.TryGetValue(s.Id, out var peList)
+                ? peList
+                : new List<int>();
+
+            dto.Actions = actByScenario.TryGetValue(s.Id, out var aList)
+                ? aList
+                : new List<ScenarioActionRefDto>();
 
             result.Add(dto);
         }
@@ -82,10 +115,24 @@ public sealed class ScenarioController : ControllerBase
             .Where(x => x.ScenarioId == id)
             .ToListAsync();
 
+        var pes = await _db.ScenarioProducedEvents.AsNoTracking()
+            .Where(x => x.ScenarioId == id)
+            .ToListAsync();
+
+        var acts = await _db.ScenarioActions.AsNoTracking()
+            .Where(x => x.ScenarioId == id)
+            .ToListAsync();
+
         var dto = Map.ToDto(s);
         dto.TriggerId = s.TriggerId;
         dto.PreconditionIds = pres.Select(x => x.ConditionId).ToList();
-        dto.FactChanges = fcs.Select(ToDto).ToList();
+        dto.FactChanges = fcs.Select(ToScenarioFactChangeDto).ToList();
+        dto.ProducedEventIds = pes.Select(x => x.EventId).Distinct().ToList();
+        dto.Actions = acts.Select(x => new ScenarioActionRefDto
+        {
+            ActionId = x.ActionId,
+            ParamsJson = x.ParamsJson
+        }).ToList();
 
         return dto;
     }
@@ -97,8 +144,6 @@ public sealed class ScenarioController : ControllerBase
 
         var entity = Map.ToEntity(input);
         entity.Id = 0;
-
-        // NEW
         entity.TriggerId = input.TriggerId;
 
         _db.Scenarios.Add(entity);
@@ -106,18 +151,25 @@ public sealed class ScenarioController : ControllerBase
 
         await SyncPreconditions(entity.Id, input.PreconditionIds);
         await SyncFactChanges(entity.Id, input.FactChanges);
+        await SyncProducedEvents(entity.Id, input.ProducedEventIds);
+        await SyncActions(entity.Id, input.Actions);
 
-        // return full dto
+        // response (full-ish)
         var saved = await _db.Scenarios.AsNoTracking().FirstAsync(x => x.Id == entity.Id);
         var dto = Map.ToDto(saved);
         dto.TriggerId = saved.TriggerId;
+
         dto.PreconditionIds = (input.PreconditionIds ?? new()).ToList();
+
         dto.FactChanges = (input.FactChanges ?? new()).Select(x =>
         {
-            x.Id = 0;              // client ids ignored
+            x.Id = 0;
             x.ScenarioId = saved.Id;
             return x;
         }).ToList();
+
+        dto.ProducedEventIds = (input.ProducedEventIds ?? new()).Distinct().ToList();
+        dto.Actions = (input.Actions ?? new()).ToList();
 
         return CreatedAtAction(nameof(GetById), new { id = entity.Id }, dto);
     }
@@ -130,30 +182,26 @@ public sealed class ScenarioController : ControllerBase
         var row = await _db.Scenarios.FirstOrDefaultAsync(x => x.Id == id);
         if (row == null) return NotFound();
 
-        // update base fields
         row.ScenarioKey = input.ScenarioKey;
         row.TitleFa = input.TitleFa;
         row.Description = input.Description;
         row.StageId = input.StageId;
         row.OwnerSubdomain = input.OwnerSubdomain;
-
-        // NEW
         row.TriggerId = input.TriggerId;
 
         await _db.SaveChangesAsync();
 
         await SyncPreconditions(id, input.PreconditionIds);
         await SyncFactChanges(id, input.FactChanges);
+        await SyncProducedEvents(id, input.ProducedEventIds);
+        await SyncActions(id, input.Actions);
 
-        // return full dto (fresh)
         var dto = Map.ToDto(row);
         dto.TriggerId = row.TriggerId;
         dto.PreconditionIds = (input.PreconditionIds ?? new()).ToList();
-        dto.FactChanges = (input.FactChanges ?? new()).Select(x =>
-        {
-            x.ScenarioId = id;
-            return x;
-        }).ToList();
+        dto.FactChanges = (input.FactChanges ?? new()).Select(x => { x.ScenarioId = id; return x; }).ToList();
+        dto.ProducedEventIds = (input.ProducedEventIds ?? new()).Distinct().ToList();
+        dto.Actions = (input.Actions ?? new()).ToList();
 
         return dto;
     }
@@ -161,7 +209,13 @@ public sealed class ScenarioController : ControllerBase
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
     {
-        // delete children first
+        // children first
+        var scActs = await _db.ScenarioActions.Where(x => x.ScenarioId == id).ToListAsync();
+        _db.ScenarioActions.RemoveRange(scActs);
+
+        var scPes = await _db.ScenarioProducedEvents.Where(x => x.ScenarioId == id).ToListAsync();
+        _db.ScenarioProducedEvents.RemoveRange(scPes);
+
         var pres = await _db.ScenarioPreconditions.Where(x => x.ScenarioId == id).ToListAsync();
         _db.ScenarioPreconditions.RemoveRange(pres);
 
@@ -177,9 +231,13 @@ public sealed class ScenarioController : ControllerBase
         return NoContent();
     }
 
+    // -----------------------
+    // Sync helpers
+    // -----------------------
+
     private async Task SyncPreconditions(int scenarioId, List<int>? conditionIds)
     {
-        conditionIds ??= new List<int>();
+        conditionIds ??= new();
 
         var existing = await _db.ScenarioPreconditions
             .Where(x => x.ScenarioId == scenarioId)
@@ -205,7 +263,7 @@ public sealed class ScenarioController : ControllerBase
 
     private async Task SyncFactChanges(int scenarioId, List<ScenarioFactChangeDto>? factChanges)
     {
-        factChanges ??= new List<ScenarioFactChangeDto>();
+        factChanges ??= new();
 
         var existing = await _db.ScenarioFactChanges
             .Where(x => x.ScenarioId == scenarioId)
@@ -230,7 +288,64 @@ public sealed class ScenarioController : ControllerBase
         await _db.SaveChangesAsync();
     }
 
-    private static ScenarioFactChangeDto ToDto(ScenarioFactChange e) => new()
+    private async Task SyncProducedEvents(int scenarioId, List<int>? eventIds)
+    {
+        eventIds ??= new();
+
+        var existing = await _db.ScenarioProducedEvents
+            .Where(x => x.ScenarioId == scenarioId)
+            .ToListAsync();
+
+        _db.ScenarioProducedEvents.RemoveRange(existing);
+
+        if (eventIds.Count > 0)
+        {
+            var rows = eventIds.Distinct()
+                .Select(eid => new ScenarioProducedEvent
+                {
+                    ScenarioId = scenarioId,
+                    EventId = eid
+                })
+                .ToList();
+
+            _db.ScenarioProducedEvents.AddRange(rows);
+        }
+
+        await _db.SaveChangesAsync();
+    }
+
+    private async Task SyncActions(int scenarioId, List<ScenarioActionRefDto>? actions)
+    {
+        actions ??= new();
+
+        var existing = await _db.ScenarioActions
+            .Where(x => x.ScenarioId == scenarioId)
+            .ToListAsync();
+
+        _db.ScenarioActions.RemoveRange(existing);
+
+        if (actions.Count > 0)
+        {
+            // de-dupe by ActionId (first wins)
+            var rows = actions
+                .Where(x => x.ActionId > 0)
+                .GroupBy(x => x.ActionId)
+                .Select(g => g.First())
+                .Select(a => new ScenarioAction
+                {
+                    ScenarioId = scenarioId,
+                    ActionId = a.ActionId,
+                    ParamsJson = a.ParamsJson
+                })
+                .ToList();
+
+            _db.ScenarioActions.AddRange(rows);
+        }
+
+        await _db.SaveChangesAsync();
+    }
+
+    private static ScenarioFactChangeDto ToScenarioFactChangeDto(ScenarioFactChange e) => new()
     {
         Id = e.Id,
         ScenarioId = e.ScenarioId,

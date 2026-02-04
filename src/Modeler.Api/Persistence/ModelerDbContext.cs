@@ -6,6 +6,8 @@ namespace Modeler.Api.Persistence;
 
 public sealed class ModelerDbContext : DbContext
 {
+    #region Entities
+		
     public ModelerDbContext(DbContextOptions<ModelerDbContext> options) : base(options) { }
 
     public DbSet<DictionaryTerm> DictionaryTerms => Set<DictionaryTerm>();
@@ -36,6 +38,13 @@ public sealed class ModelerDbContext : DbContext
     public DbSet<TriggerDefinition> Triggers => Set<TriggerDefinition>();
     public DbSet<EventDefinition> Events => Set<EventDefinition>();
     public DbSet<EventTriggerLink> EventTriggerLinks => Set<EventTriggerLink>();
+
+    public DbSet<ScenarioProducedEvent> ScenarioProducedEvents => Set<ScenarioProducedEvent>();
+
+    public DbSet<ScenarioAction> ScenarioActions => Set<ScenarioAction>();
+
+     
+    #endregion
 
     protected override void OnModelCreating(ModelBuilder mb)
     {
@@ -228,6 +237,39 @@ public sealed class ModelerDbContext : DbContext
         .WithMany()
         .HasForeignKey(x => x.TriggerId)
         .OnDelete(DeleteBehavior.Restrict);
+
+        mb.Entity<ScenarioProducedEvent>()
+    .HasIndex(x => new { x.ScenarioId, x.EventId })
+    .IsUnique();
+
+        mb.Entity<ScenarioProducedEvent>()
+            .HasOne(x => x.Scenario)
+            .WithMany()
+            .HasForeignKey(x => x.ScenarioId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        mb.Entity<ScenarioProducedEvent>()
+            .HasOne(x => x.Event)
+            .WithMany()
+            .HasForeignKey(x => x.EventId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        mb.Entity<ScenarioAction>()
+    .HasIndex(x => new { x.ScenarioId, x.ActionId })
+    .IsUnique();
+
+        mb.Entity<ScenarioAction>()
+            .HasOne(x => x.Scenario)
+            .WithMany()
+            .HasForeignKey(x => x.ScenarioId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        mb.Entity<ScenarioAction>()
+            .HasOne(x => x.Action)
+            .WithMany()
+            .HasForeignKey(x => x.ActionId)
+            .OnDelete(DeleteBehavior.Restrict);
+         
 
     }
 

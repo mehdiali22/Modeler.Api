@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Modeler.Api.Persistence;
 
@@ -11,9 +12,11 @@ using Modeler.Api.Persistence;
 namespace Modeler.Api.Migrations
 {
     [DbContext(typeof(ModelerDbContext))]
-    partial class ModelerDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260204094344_AddScenarioProducedEvents")]
+    partial class AddScenarioProducedEvents
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -501,39 +504,6 @@ namespace Modeler.Api.Migrations
                     b.ToTable("Scenarios");
                 });
 
-            modelBuilder.Entity("Modeler.Api.Domain.ScenarioAction", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("ActionId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("ParamsJson")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("ScenarioId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("UpdatedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ActionId");
-
-                    b.HasIndex("ScenarioId", "ActionId")
-                        .IsUnique();
-
-                    b.ToTable("ScenarioActions");
-                });
-
             modelBuilder.Entity("Modeler.Api.Domain.ScenarioDecision", b =>
                 {
                     b.Property<int>("Id")
@@ -937,25 +907,6 @@ namespace Modeler.Api.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Trigger");
-                });
-
-            modelBuilder.Entity("Modeler.Api.Domain.ScenarioAction", b =>
-                {
-                    b.HasOne("Modeler.Api.Domain.Actions", "Action")
-                        .WithMany()
-                        .HasForeignKey("ActionId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("Modeler.Api.Domain.Scenario", "Scenario")
-                        .WithMany()
-                        .HasForeignKey("ScenarioId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Action");
-
-                    b.Navigation("Scenario");
                 });
 
             modelBuilder.Entity("Modeler.Api.Domain.ScenarioDecision", b =>

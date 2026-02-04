@@ -5,7 +5,6 @@ using Modeler.Api.Persistence;
 
 namespace Modeler.Api.Controllers;
 
-
 [ApiController]
 [Route("api/tools")]
 public sealed class ToolsController : ControllerBase
@@ -22,6 +21,7 @@ public sealed class ToolsController : ControllerBase
     {
         var bundle = new ExportBundle(
             ExportedAt: DateTime.UtcNow,
+
             DictionaryTerms: await _db.DictionaryTerms.AsNoTracking().ToListAsync(),
             Artifacts: await _db.Artifacts.AsNoTracking().ToListAsync(),
             Facts: await _db.Facts.AsNoTracking().ToListAsync(),
@@ -31,7 +31,6 @@ public sealed class ToolsController : ControllerBase
             Actors: await _db.Actors.AsNoTracking().ToListAsync(),
             Actions: await _db.Actions.AsNoTracking().ToListAsync(),
 
-            // NEW
             Triggers: await _db.Triggers.AsNoTracking().ToListAsync(),
             Events: await _db.Events.AsNoTracking().ToListAsync(),
             EventTriggerLinks: await _db.EventTriggerLinks.AsNoTracking().ToListAsync(),
@@ -43,6 +42,13 @@ public sealed class ToolsController : ControllerBase
             ScenarioPreconditions: await _db.ScenarioPreconditions.AsNoTracking().ToListAsync(),
             ScenarioInputArtifacts: await _db.ScenarioInputArtifacts.AsNoTracking().ToListAsync(),
             ScenarioFactChanges: await _db.ScenarioFactChanges.AsNoTracking().ToListAsync(),
+
+            // ✅ already added previously
+            ScenarioProducedEvents: await _db.ScenarioProducedEvents.AsNoTracking().ToListAsync(),
+
+            // ✅ NEW: scenario-level actions
+            ScenarioActions: await _db.ScenarioActions.AsNoTracking().ToListAsync(),
+
             ScenarioDecisions: await _db.ScenarioDecisions.AsNoTracking().ToListAsync(),
             ScenarioDecisionOptions: await _db.ScenarioDecisionOptions.AsNoTracking().ToListAsync(),
             DecisionOptionFactChanges: await _db.DecisionOptionFactChanges.AsNoTracking().ToListAsync()
@@ -57,7 +63,6 @@ public sealed class ToolsController : ControllerBase
     {
         mode = (mode ?? "upsert").Trim().ToLowerInvariant();
 
-        // UI compatibility
         mode = mode switch
         {
             "merge" => "upsert",
@@ -74,7 +79,6 @@ public sealed class ToolsController : ControllerBase
         if (mode != "upsert")
             return BadRequest(new { error = "mode must be replace|upsert (also accepts overwrite|merge)" });
 
-        // upsert ساده (بدون حفظ id های خاص برای insert جدید)
         UpsertMany(_db.DictionaryTerms, input.DictionaryTerms);
         UpsertMany(_db.Artifacts, input.Artifacts);
         UpsertMany(_db.Facts, input.Facts);
@@ -88,7 +92,7 @@ public sealed class ToolsController : ControllerBase
         UpsertMany(_db.Actors, input.Actors);
         UpsertMany(_db.Actions, input.Actions);
 
-        // NEW: parents first
+        // parents first
         UpsertMany(_db.Triggers, input.Triggers);
         UpsertMany(_db.Events, input.Events);
 
@@ -103,11 +107,18 @@ public sealed class ToolsController : ControllerBase
 
         UpsertMany(_db.ScenarioInputArtifacts, input.ScenarioInputArtifacts);
         UpsertMany(_db.ScenarioFactChanges, input.ScenarioFactChanges);
+
+        // needs scenarios + events
+        UpsertMany(_db.ScenarioProducedEvents, input.ScenarioProducedEvents);
+
+        // ✅ NEW: needs scenarios + actions
+        UpsertMany(_db.ScenarioActions, input.ScenarioActions);
+
         UpsertMany(_db.ScenarioDecisions, input.ScenarioDecisions);
         UpsertMany(_db.ScenarioDecisionOptions, input.ScenarioDecisionOptions);
         UpsertMany(_db.DecisionOptionFactChanges, input.DecisionOptionFactChanges);
 
-        // NEW: links last (needs parent ids)
+        // links last
         UpsertMany(_db.EventTriggerLinks, input.EventTriggerLinks);
 
         await _db.SaveChangesAsync();
@@ -126,7 +137,6 @@ public sealed class ToolsController : ControllerBase
         var actors = await _db.Actors.AsNoTracking().ToListAsync();
         var actions = await _db.Actions.AsNoTracking().ToListAsync();
 
-        // NEW
         var triggers = await _db.Triggers.AsNoTracking().ToListAsync();
         var events = await _db.Events.AsNoTracking().ToListAsync();
         var links = await _db.EventTriggerLinks.AsNoTracking().ToListAsync();
@@ -141,6 +151,9 @@ public sealed class ToolsController : ControllerBase
         var factEnums = await _db.FactEnumValues.AsNoTracking().ToListAsync();
         var subps = await _db.SubProcesses.AsNoTracking().ToListAsync();
 
+        var scPes = await _db.ScenarioProducedEvents.AsNoTracking().ToListAsync();
+        var scActs = await _db.ScenarioActions.AsNoTracking().ToListAsync(); // ✅ NEW
+
         var artIds = artifacts.Select(x => x.Id).ToHashSet();
         var factIds = facts.Select(x => x.Id).ToHashSet();
         var condIds = conditions.Select(x => x.Id).ToHashSet();
@@ -148,10 +161,11 @@ public sealed class ToolsController : ControllerBase
         var stageIds = stages.Select(x => x.Id).ToHashSet();
         var scIds = scenarios.Select(x => x.Id).ToHashSet();
         var actorIds = actors.Select(x => x.Id).ToHashSet();
+        var actionIds = actions.Select(x => x.Id).ToHashSet(); // ✅ NEW for scenario actions
+
         var optIds = opts.Select(x => x.Id).ToHashSet();
         var scDecisionIds = scDecisions.Select(x => x.Id).ToHashSet();
 
-        // NEW
         var triggerIds = triggers.Select(x => x.Id).ToHashSet();
         var eventIds = events.Select(x => x.Id).ToHashSet();
 
@@ -182,8 +196,13 @@ public sealed class ToolsController : ControllerBase
                 issues.Add(new("SubProcess", sp.Id, $"processId '{sp.ProcessId}' not found"));
 
         foreach (var sc in scenarios)
+        {
             if (!stageIds.Contains(sc.StageId))
                 issues.Add(new("Scenario", sc.Id, $"stageId '{sc.StageId}' not found"));
+
+            if (sc.TriggerId.HasValue && !triggerIds.Contains(sc.TriggerId.Value))
+                issues.Add(new("Scenario", sc.Id, $"triggerId '{sc.TriggerId}' not found"));
+        }
 
         foreach (var pre in scPre)
         {
@@ -233,7 +252,6 @@ public sealed class ToolsController : ControllerBase
                 issues.Add(new("DecisionOptionFactChange", ofc.Id, $"factId '{ofc.FactId}' not found"));
         }
 
-        // NEW: EventTriggerLinks
         foreach (var l in links)
         {
             if (!eventIds.Contains(l.EventId))
@@ -242,21 +260,41 @@ public sealed class ToolsController : ControllerBase
                 issues.Add(new("EventTriggerLink", l.Id, $"triggerId '{l.TriggerId}' not found"));
         }
 
+        foreach (var pe in scPes)
+        {
+            if (!scIds.Contains(pe.ScenarioId))
+                issues.Add(new("ScenarioProducedEvent", pe.Id, $"scenarioId '{pe.ScenarioId}' not found"));
+            if (!eventIds.Contains(pe.EventId))
+                issues.Add(new("ScenarioProducedEvent", pe.Id, $"eventId '{pe.EventId}' not found"));
+        }
+
+        // ✅ NEW: ScenarioActions validation
+        foreach (var sa in scActs)
+        {
+            if (!scIds.Contains(sa.ScenarioId))
+                issues.Add(new("ScenarioAction", sa.Id, $"scenarioId '{sa.ScenarioId}' not found"));
+            if (!actionIds.Contains(sa.ActionId))
+                issues.Add(new("ScenarioAction", sa.Id, $"actionId '{sa.ActionId}' not found"));
+        }
+
         return issues;
     }
 
     private async Task ReplaceAll(ExportBundle input)
     {
-        // delete all (FK order: children first)
+        // children first
         _db.DecisionOptionFactChanges.RemoveRange(_db.DecisionOptionFactChanges);
         _db.ScenarioDecisionOptions.RemoveRange(_db.ScenarioDecisionOptions);
         _db.ScenarioDecisions.RemoveRange(_db.ScenarioDecisions);
+
+        _db.ScenarioActions.RemoveRange(_db.ScenarioActions);               // ✅ NEW
+        _db.ScenarioProducedEvents.RemoveRange(_db.ScenarioProducedEvents); // ✅ existing
+
         _db.ScenarioFactChanges.RemoveRange(_db.ScenarioFactChanges);
         _db.ScenarioInputArtifacts.RemoveRange(_db.ScenarioInputArtifacts);
         _db.ScenarioPreconditions.RemoveRange(_db.ScenarioPreconditions);
         _db.ConditionFactUsed.RemoveRange(_db.ConditionFactUsed);
 
-        // NEW: children first
         _db.EventTriggerLinks.RemoveRange(_db.EventTriggerLinks);
 
         _db.Scenarios.RemoveRange(_db.Scenarios);
@@ -264,7 +302,6 @@ public sealed class ToolsController : ControllerBase
         _db.SubProcesses.RemoveRange(_db.SubProcesses);
         _db.Processes.RemoveRange(_db.Processes);
 
-        // NEW: parents after links
         _db.Events.RemoveRange(_db.Events);
         _db.Triggers.RemoveRange(_db.Triggers);
 
@@ -277,7 +314,6 @@ public sealed class ToolsController : ControllerBase
         _db.DictionaryTerms.RemoveRange(_db.DictionaryTerms);
         await _db.SaveChangesAsync();
 
-        // insert with identity values preserved (SET IDENTITY_INSERT)
         using var tx = await _db.Database.BeginTransactionAsync();
 
         await InsertWithIdentity("DictionaryTerms", input.DictionaryTerms);
@@ -292,7 +328,6 @@ public sealed class ToolsController : ControllerBase
         await InsertWithIdentity("Actors", input.Actors);
         await InsertWithIdentity("Actions", input.Actions);
 
-        // NEW: parents first
         await InsertWithIdentity("Triggers", input.Triggers);
         await InsertWithIdentity("Events", input.Events);
 
@@ -306,11 +341,16 @@ public sealed class ToolsController : ControllerBase
 
         await InsertWithIdentity("ScenarioInputArtifacts", input.ScenarioInputArtifacts);
         await InsertWithIdentity("ScenarioFactChanges", input.ScenarioFactChanges);
+
+        await InsertWithIdentity("ScenarioProducedEvents", input.ScenarioProducedEvents);
+
+        // ✅ NEW: after Scenarios + Actions exist
+        await InsertWithIdentity("ScenarioActions", input.ScenarioActions);
+
         await InsertWithIdentity("ScenarioDecisions", input.ScenarioDecisions);
         await InsertWithIdentity("ScenarioDecisionOptions", input.ScenarioDecisionOptions);
         await InsertWithIdentity("DecisionOptionFactChanges", input.DecisionOptionFactChanges);
 
-        // NEW: links last (needs parents)
         await InsertWithIdentity("EventTriggerLinks", input.EventTriggerLinks);
 
         await tx.CommitAsync();
@@ -320,7 +360,6 @@ public sealed class ToolsController : ControllerBase
     {
         if (rows.Count == 0) return;
 
-        // اگر همه Id=0 باشه، اصلاً identity_insert لازم نیست
         var hasExplicit = rows.Any(x => x.Id > 0);
         if (!hasExplicit)
         {
@@ -342,7 +381,6 @@ public sealed class ToolsController : ControllerBase
         {
             if (r.Id <= 0)
             {
-                // insert new identity
                 r.Id = 0;
                 set.Add(r);
                 continue;
@@ -354,6 +392,7 @@ public sealed class ToolsController : ControllerBase
         }
     }
 }
+
 public sealed record ExportBundle(
     DateTime ExportedAt,
     List<DictionaryTerm> DictionaryTerms,
@@ -365,7 +404,6 @@ public sealed record ExportBundle(
     List<Actor> Actors,
     List<Actions> Actions,
 
-    // NEW
     List<TriggerDefinition> Triggers,
     List<EventDefinition> Events,
     List<EventTriggerLink> EventTriggerLinks,
@@ -377,6 +415,11 @@ public sealed record ExportBundle(
     List<ScenarioPrecondition> ScenarioPreconditions,
     List<ScenarioInputArtifact> ScenarioInputArtifacts,
     List<ScenarioFactChange> ScenarioFactChanges,
+    List<ScenarioProducedEvent> ScenarioProducedEvents,
+
+    // ✅ NEW
+    List<ScenarioAction> ScenarioActions,
+
     List<ScenarioDecision> ScenarioDecisions,
     List<ScenarioDecisionOption> ScenarioDecisionOptions,
     List<DecisionOptionFactChange> DecisionOptionFactChanges
