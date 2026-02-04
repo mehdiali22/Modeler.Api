@@ -8,20 +8,20 @@ using Modeler.Api.Persistence;
 namespace Modeler.Api.Controllers;
 
 [ApiController]
-[Route("api/action-catalog")]
-public sealed class ActionCatalogController : ControllerBase
+[Route("api/actions")]
+public sealed class ActionsController : ControllerBase
 {
     private readonly ModelerDbContext _db;
 
-    public ActionCatalogController(ModelerDbContext db)
+    public ActionsController(ModelerDbContext db)
     {
         _db = db;
     }
 
     [HttpGet]
-    public async Task<ActionResult<List<ActionCatalogDto>>> GetAll()
+    public async Task<ActionResult<List<ActionsDto>>> GetAll()
     {
-        IQueryable<ActionCatalog> q = _db.ActionCatalog.AsNoTracking();
+        IQueryable<Domain.Actions> q = _db.Actions.AsNoTracking();
         
 
         var rows = await q.OrderBy(x => x.ActionKey).ToListAsync();
@@ -29,32 +29,32 @@ public sealed class ActionCatalogController : ControllerBase
     }
 
     [HttpGet("{id:int}")]
-    public async Task<ActionResult<ActionCatalogDto>> GetById(int id)
+    public async Task<ActionResult<ActionsDto>> GetById(int id)
     {
-        var row = await _db.ActionCatalog.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
+        var row = await _db.Actions.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id);
         if (row == null) return NotFound();
         return Map.ToDto(row);
     }
 
     [HttpPost]
-    public async Task<ActionResult<ActionCatalogDto>> Create(ActionCatalogDto input)
+    public async Task<ActionResult<ActionsDto>> Create([FromBody] ActionsDto input)
     {
         // برای Create، Id رو نادیده می‌گیریم تا Identity تولید کنه
         input.Id = 0;
 
         var entity = Map.ToEntity(input);
-        _db.ActionCatalog.Add(entity);
+        _db.Actions.Add(entity);
         await _db.SaveChangesAsync();
 
         return CreatedAtAction(nameof(GetById), new { id = entity.Id }, Map.ToDto(entity));
     }
 
     [HttpPut("{id:int}")]
-    public async Task<ActionResult<ActionCatalogDto>> Update(int id, ActionCatalogDto input)
+    public async Task<ActionResult<ActionsDto>> Update(int id, [FromBody] ActionsDto input)
     {
         if (id != input.Id) return BadRequest("id mismatch");
 
-        var exists = await CrudHelpers.ExistsAsync<ActionCatalog>(_db, id);
+        var exists = await CrudHelpers.ExistsAsync<Domain.Actions>(_db, id);
         if (!exists) return NotFound();
 
         var entity = Map.ToEntity(input);
@@ -67,10 +67,10 @@ public sealed class ActionCatalogController : ControllerBase
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id)
     {
-        var row = await CrudHelpers.FindAsync<ActionCatalog>(_db, id);
+        var row = await CrudHelpers.FindAsync<Domain.Actions>(_db, id);
         if (row == null) return NotFound();
 
-        _db.ActionCatalog.Remove(row);
+        _db.Actions.Remove(row);
         await _db.SaveChangesAsync();
 
         return NoContent();

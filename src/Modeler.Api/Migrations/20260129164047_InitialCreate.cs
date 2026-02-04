@@ -101,7 +101,7 @@ namespace Modeler.Api.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "ActionCatalog",
+                name: "Actions",
                 columns: table => new
                 {
                     Id = table.Column<int>(type: "int", nullable: false)
@@ -118,15 +118,15 @@ namespace Modeler.Api.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_ActionCatalog", x => x.Id);
+                    table.PrimaryKey("PK_Actions", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_ActionCatalog_Actors_ExecutorActorId",
+                        name: "FK_Actions_Actors_ExecutorActorId",
                         column: x => x.ExecutorActorId,
                         principalTable: "Actors",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
-                        name: "FK_ActionCatalog_Artifacts_TargetArtifactId",
+                        name: "FK_Actions_Artifacts_TargetArtifactId",
                         column: x => x.TargetArtifactId,
                         principalTable: "Artifacts",
                         principalColumn: "Id",
@@ -444,19 +444,19 @@ namespace Modeler.Api.Migrations
                 });
 
             migrationBuilder.CreateIndex(
-                name: "IX_ActionCatalog_ActionKey",
-                table: "ActionCatalog",
+                name: "IX_Actions_ActionKey",
+                table: "Actions",
                 column: "ActionKey",
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_ActionCatalog_ExecutorActorId",
-                table: "ActionCatalog",
+                name: "IX_Actions_ExecutorActorId",
+                table: "Actions",
                 column: "ExecutorActorId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_ActionCatalog_TargetArtifactId",
-                table: "ActionCatalog",
+                name: "IX_Actions_TargetArtifactId",
+                table: "Actions",
                 column: "TargetArtifactId");
 
             migrationBuilder.CreateIndex(
@@ -586,7 +586,7 @@ namespace Modeler.Api.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
-                name: "ActionCatalog");
+                name: "Actions");
 
             migrationBuilder.DropTable(
                 name: "ConditionFactUsed");

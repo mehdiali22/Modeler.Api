@@ -2,7 +2,7 @@ using Modeler.Api.Domain;
 
 namespace Modeler.Api.Dtos;
 
-public sealed class ActionCatalogDto
+public sealed class ActionsDto
 {
     public int Id { get; set; }
     public string ActionKey { get; set; } = default!;

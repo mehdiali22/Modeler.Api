@@ -14,7 +14,7 @@ public sealed record ExportBundle(
     List<Condition> Conditions,
     List<ConditionFactUsed> ConditionFactUsed,
     List<Actor> Actors,
-    List<ActionCatalog> ActionCatalog,
+    List<Actions> Actions,
     List<Process> Processes,
     List<SubProcess> SubProcesses,
     List<Stage> Stages,
@@ -52,7 +52,7 @@ public sealed class ToolsController : ControllerBase
             Conditions: await _db.Conditions.AsNoTracking().ToListAsync(),
             ConditionFactUsed: await _db.ConditionFactUsed.AsNoTracking().ToListAsync(),
             Actors: await _db.Actors.AsNoTracking().ToListAsync(),
-            ActionCatalog: await _db.ActionCatalog.AsNoTracking().ToListAsync(),
+            Actions: await _db.Actions.AsNoTracking().ToListAsync(),
             Processes: await _db.Processes.AsNoTracking().ToListAsync(),
             SubProcesses: await _db.SubProcesses.AsNoTracking().ToListAsync(),
             Stages: await _db.Stages.AsNoTracking().ToListAsync(),
@@ -74,6 +74,14 @@ public sealed class ToolsController : ControllerBase
     {
         mode = (mode ?? "upsert").Trim().ToLowerInvariant();
 
+        // UI compatibility: merge|overwrite
+        mode = mode switch
+        {
+            "merge" => "upsert",
+            "overwrite" => "replace",
+            _ => mode
+        };
+
         if (mode == "replace")
         {
             await ReplaceAll(input);
@@ -92,7 +100,7 @@ public sealed class ToolsController : ControllerBase
                 _db.ConditionFactUsed.Add(r);
 
         UpsertMany(_db.Actors, input.Actors);
-        UpsertMany(_db.ActionCatalog, input.ActionCatalog);
+        UpsertMany(_db.Actions, input.Actions);
         UpsertMany(_db.Processes, input.Processes);
         UpsertMany(_db.SubProcesses, input.SubProcesses);
         UpsertMany(_db.Stages, input.Stages);
@@ -122,7 +130,7 @@ public sealed class ToolsController : ControllerBase
         var stages = await _db.Stages.AsNoTracking().ToListAsync();
         var scenarios = await _db.Scenarios.AsNoTracking().ToListAsync();
         var actors = await _db.Actors.AsNoTracking().ToListAsync();
-        var actions = await _db.ActionCatalog.AsNoTracking().ToListAsync();
+        var actions = await _db.Actions.AsNoTracking().ToListAsync();
         var opts = await _db.ScenarioDecisionOptions.AsNoTracking().ToListAsync();
         var optFcs = await _db.DecisionOptionFactChanges.AsNoTracking().ToListAsync();
         var scFcs = await _db.ScenarioFactChanges.AsNoTracking().ToListAsync();
@@ -200,9 +208,9 @@ public sealed class ToolsController : ControllerBase
         foreach (var ac in actions)
         {
             if (ac.TargetArtifactId.HasValue && !artIds.Contains(ac.TargetArtifactId.Value))
-                issues.Add(new("ActionCatalog", ac.Id, $"targetArtifactId '{ac.TargetArtifactId}' not found"));
+                issues.Add(new("Actions", ac.Id, $"targetArtifactId '{ac.TargetArtifactId}' not found"));
             if (ac.ExecutorActorId.HasValue && !actorIds.Contains(ac.ExecutorActorId.Value))
-                issues.Add(new("ActionCatalog", ac.Id, $"executorActorId '{ac.ExecutorActorId}' not found"));
+                issues.Add(new("Actions", ac.Id, $"executorActorId '{ac.ExecutorActorId}' not found"));
         }
 
         foreach (var d in scDecisions)
@@ -238,7 +246,7 @@ public sealed class ToolsController : ControllerBase
         _db.Stages.RemoveRange(_db.Stages);
         _db.SubProcesses.RemoveRange(_db.SubProcesses);
         _db.Processes.RemoveRange(_db.Processes);
-        _db.ActionCatalog.RemoveRange(_db.ActionCatalog);
+        _db.Actions.RemoveRange(_db.Actions);
         _db.Actors.RemoveRange(_db.Actors);
         _db.Conditions.RemoveRange(_db.Conditions);
         _db.FactEnumValues.RemoveRange(_db.FactEnumValues);
@@ -260,7 +268,7 @@ public sealed class ToolsController : ControllerBase
         await _db.SaveChangesAsync();
 
         await InsertWithIdentity("Actors", input.Actors);
-        await InsertWithIdentity("ActionCatalog", input.ActionCatalog);
+        await InsertWithIdentity("Actions", input.Actions);
         await InsertWithIdentity("Processes", input.Processes);
         await InsertWithIdentity("SubProcesses", input.SubProcesses);
         await InsertWithIdentity("Stages", input.Stages);

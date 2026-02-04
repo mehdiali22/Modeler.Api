@@ -111,7 +111,7 @@ public static class Map
         Description = d.Description
     };
 
-    public static ActionCatalogDto ToDto(ActionCatalog e) => new()
+    public static ActionsDto ToDto(Domain.Actions e) => new()
     {
         Id = e.Id,
         ActionKey = e.ActionKey,
@@ -123,7 +123,7 @@ public static class Map
         DefaultParamsJson = e.DefaultParamsJson
     };
 
-    public static ActionCatalog ToEntity(ActionCatalogDto d) => new()
+    public static Domain.Actions ToEntity(ActionsDto d) => new()
     {
         Id = d.Id,
         ActionKey = d.ActionKey,

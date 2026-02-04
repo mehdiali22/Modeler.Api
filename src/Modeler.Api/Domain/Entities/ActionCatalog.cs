@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Modeler.Api.Domain;
 
-public sealed class ActionCatalog : BaseEntity
+public sealed class Actions : BaseEntity
 {
     [MaxLength(150)]
     public string ActionKey { get; set; } = default!;

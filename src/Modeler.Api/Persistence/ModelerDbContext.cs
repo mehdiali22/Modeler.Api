@@ -17,7 +17,7 @@ public sealed class ModelerDbContext : DbContext
     public DbSet<ConditionFactUsed> ConditionFactUsed => Set<ConditionFactUsed>();
 
     public DbSet<Actor> Actors => Set<Actor>();
-    public DbSet<ActionCatalog> ActionCatalog => Set<ActionCatalog>();
+    public DbSet<Domain.Actions> Actions => Set<Domain.Actions>();
 
     public DbSet<Process> Processes => Set<Process>();
     public DbSet<SubProcess> SubProcesses => Set<SubProcess>();
@@ -47,7 +47,7 @@ public sealed class ModelerDbContext : DbContext
         mb.Entity<FactEnumValue>().Property(x => x.Id).ValueGeneratedOnAdd();
         mb.Entity<Condition>().Property(x => x.Id).ValueGeneratedOnAdd();
         mb.Entity<Actor>().Property(x => x.Id).ValueGeneratedOnAdd();
-        mb.Entity<ActionCatalog>().Property(x => x.Id).ValueGeneratedOnAdd();
+        mb.Entity<Domain.Actions>().Property(x => x.Id).ValueGeneratedOnAdd();
         mb.Entity<Process>().Property(x => x.Id).ValueGeneratedOnAdd();
         mb.Entity<SubProcess>().Property(x => x.Id).ValueGeneratedOnAdd();
         mb.Entity<Stage>().Property(x => x.Id).ValueGeneratedOnAdd();
@@ -68,7 +68,7 @@ public sealed class ModelerDbContext : DbContext
         mb.Entity<Condition>().HasIndex(x => x.ConditionKey).IsUnique();
 
         mb.Entity<Actor>().HasIndex(x => x.ActorKey).IsUnique();
-        mb.Entity<ActionCatalog>().HasIndex(x => x.ActionKey).IsUnique();
+        mb.Entity<Domain.Actions>().HasIndex(x => x.ActionKey).IsUnique();
 
         mb.Entity<Process>().HasIndex(x => x.ProcessKey).IsUnique();
         mb.Entity<Stage>().HasIndex(x => new { x.ProcessId, x.StageKey }).IsUnique();
@@ -103,13 +103,13 @@ public sealed class ModelerDbContext : DbContext
             .HasForeignKey(x => x.FactId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        mb.Entity<ActionCatalog>()
+        mb.Entity<Domain.Actions>()
             .HasOne<Artifact>()
             .WithMany()
             .HasForeignKey(x => x.TargetArtifactId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        mb.Entity<ActionCatalog>()
+        mb.Entity<Domain.Actions>()
             .HasOne<Actor>()
             .WithMany()
             .HasForeignKey(x => x.ExecutorActorId)

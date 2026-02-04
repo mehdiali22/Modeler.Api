@@ -25,7 +25,7 @@ namespace Modeler.Api.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
-            modelBuilder.Entity("Modeler.Api.Domain.ActionCatalog", b =>
+            modelBuilder.Entity("Modeler.Api.Domain.Actions", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -73,7 +73,7 @@ namespace Modeler.Api.Migrations
 
                     b.HasIndex("TargetArtifactId");
 
-                    b.ToTable("ActionCatalog");
+                    b.ToTable("Actions");
                 });
 
             modelBuilder.Entity("Modeler.Api.Domain.Actor", b =>
@@ -684,7 +684,7 @@ namespace Modeler.Api.Migrations
                     b.ToTable("SubProcesses");
                 });
 
-            modelBuilder.Entity("Modeler.Api.Domain.ActionCatalog", b =>
+            modelBuilder.Entity("Modeler.Api.Domain.Actions", b =>
                 {
                     b.HasOne("Modeler.Api.Domain.Actor", null)
                         .WithMany()

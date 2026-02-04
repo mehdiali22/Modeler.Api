@@ -1,9 +1,10 @@
-using Microsoft.AspNetCore.Builder;
+﻿using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Modeler.Api.Persistence;
+using System.Text.Json.Serialization;
 
 namespace Modeler.Api;
 
@@ -18,10 +19,16 @@ public sealed class Startup
 
     public void ConfigureServices(IServiceCollection services)
     {
-        services.AddControllers();
+        services.AddControllers()
+         .AddJsonOptions(opt =>
+         {
+             opt.JsonSerializerOptions.PropertyNameCaseInsensitive = true; // مهم
+             opt.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()); // برای System/Human و Set/Unset...
+         });
+
 
         services.AddDbContext<ModelerDbContext>(opt =>
-            opt.UseSqlServer(_cfg.GetConnectionString("Default")));
+                opt.UseSqlServer(_cfg.GetConnectionString("Default")));
 
         services.AddEndpointsApiExplorer();
         services.AddSwaggerGen();
