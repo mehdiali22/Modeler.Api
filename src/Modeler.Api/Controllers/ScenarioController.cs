@@ -48,6 +48,11 @@ public sealed class ScenarioController : ControllerBase
             .Where(x => scenarioIds.Contains(x.ScenarioId))
             .ToListAsync();
 
+        var sks = await _db.ScenarioKartabls
+            .AsNoTracking()
+            .Where(x => scenarioIds.Contains(x.ScenarioId))
+            .ToListAsync();
+
         var preByScenario = pres
             .GroupBy(x => x.ScenarioId)
             .ToDictionary(g => g.Key, g => g.Select(x => x.ConditionId).ToList());
@@ -71,6 +76,10 @@ public sealed class ScenarioController : ControllerBase
                 }).ToList()
             );
 
+        var kartablByScenario = sks
+            .GroupBy(x => x.ScenarioId)
+            .ToDictionary(g => g.Key, g => g.Select(x => x.KartablId).Distinct().ToList());
+
         var result = new List<ScenarioDto>(scenarios.Count);
 
         foreach (var s in scenarios)
@@ -78,6 +87,10 @@ public sealed class ScenarioController : ControllerBase
             var dto = Map.ToDto(s);
 
             dto.TriggerId = s.TriggerId;
+
+            dto.KartablIds = kartablByScenario.TryGetValue(s.Id, out var kList)
+                ? kList
+                : new List<int>();
 
             dto.PreconditionIds = preByScenario.TryGetValue(s.Id, out var preList)
                 ? preList
@@ -123,8 +136,13 @@ public sealed class ScenarioController : ControllerBase
             .Where(x => x.ScenarioId == id)
             .ToListAsync();
 
+        var sks = await _db.ScenarioKartabls.AsNoTracking()
+            .Where(x => x.ScenarioId == id)
+            .ToListAsync();
+
         var dto = Map.ToDto(s);
         dto.TriggerId = s.TriggerId;
+        dto.KartablIds = sks.Select(x => x.KartablId).Distinct().ToList();
         dto.PreconditionIds = pres.Select(x => x.ConditionId).ToList();
         dto.FactChanges = fcs.Select(ToScenarioFactChangeDto).ToList();
         dto.ProducedEventIds = pes.Select(x => x.EventId).Distinct().ToList();
@@ -150,6 +168,7 @@ public sealed class ScenarioController : ControllerBase
         await _db.SaveChangesAsync();
 
         await SyncPreconditions(entity.Id, input.PreconditionIds);
+        await SyncKartabls(entity.Id, input.KartablIds);
         await SyncFactChanges(entity.Id, input.FactChanges);
         await SyncProducedEvents(entity.Id, input.ProducedEventIds);
         await SyncActions(entity.Id, input.Actions);
@@ -158,6 +177,8 @@ public sealed class ScenarioController : ControllerBase
         var saved = await _db.Scenarios.AsNoTracking().FirstAsync(x => x.Id == entity.Id);
         var dto = Map.ToDto(saved);
         dto.TriggerId = saved.TriggerId;
+
+        dto.KartablIds = (input.KartablIds ?? new()).Distinct().ToList();
 
         dto.PreconditionIds = (input.PreconditionIds ?? new()).ToList();
 
@@ -192,12 +213,14 @@ public sealed class ScenarioController : ControllerBase
         await _db.SaveChangesAsync();
 
         await SyncPreconditions(id, input.PreconditionIds);
+        await SyncKartabls(id, input.KartablIds);
         await SyncFactChanges(id, input.FactChanges);
         await SyncProducedEvents(id, input.ProducedEventIds);
         await SyncActions(id, input.Actions);
 
         var dto = Map.ToDto(row);
         dto.TriggerId = row.TriggerId;
+        dto.KartablIds = (input.KartablIds ?? new()).Distinct().ToList();
         dto.PreconditionIds = (input.PreconditionIds ?? new()).ToList();
         dto.FactChanges = (input.FactChanges ?? new()).Select(x => { x.ScenarioId = id; return x; }).ToList();
         dto.ProducedEventIds = (input.ProducedEventIds ?? new()).Distinct().ToList();
@@ -221,6 +244,9 @@ public sealed class ScenarioController : ControllerBase
 
         var fcs = await _db.ScenarioFactChanges.Where(x => x.ScenarioId == id).ToListAsync();
         _db.ScenarioFactChanges.RemoveRange(fcs);
+
+        var sks = await _db.ScenarioKartabls.Where(x => x.ScenarioId == id).ToListAsync();
+        _db.ScenarioKartabls.RemoveRange(sks);
 
         var row = await _db.Scenarios.FirstOrDefaultAsync(x => x.Id == id);
         if (row == null) return NotFound();
@@ -256,6 +282,32 @@ public sealed class ScenarioController : ControllerBase
                 .ToList();
 
             _db.ScenarioPreconditions.AddRange(rows);
+        }
+
+        await _db.SaveChangesAsync();
+    }
+
+    private async Task SyncKartabls(int scenarioId, List<int>? kartablIds)
+    {
+        kartablIds ??= new();
+
+        var existing = await _db.ScenarioKartabls
+            .Where(x => x.ScenarioId == scenarioId)
+            .ToListAsync();
+
+        _db.ScenarioKartabls.RemoveRange(existing);
+
+        if (kartablIds.Count > 0)
+        {
+            var rows = kartablIds.Distinct()
+                .Select(kid => new ScenarioKartabl
+                {
+                    ScenarioId = scenarioId,
+                    KartablId = kid
+                })
+                .ToList();
+
+            _db.ScenarioKartabls.AddRange(rows);
         }
 
         await _db.SaveChangesAsync();

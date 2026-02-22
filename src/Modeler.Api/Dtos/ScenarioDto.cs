@@ -14,6 +14,9 @@ public sealed class ScenarioDto
 
     public int? TriggerId { get; set; }
 
+    // UI: kartablIds (Scenario is available in these kartabls)
+    public List<int> KartablIds { get; set; } = new();
+
     // UI: preconditionIds
     public List<int> PreconditionIds { get; set; } = new();
 

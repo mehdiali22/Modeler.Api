@@ -304,6 +304,51 @@ public static class Map
         Op = d.Op,
         Value = d.Value
     };
+
+    // --- Kartabl ---
+    public static KartablDto ToDto(Kartabl e) => new()
+    {
+        Id = e.Id,
+        KartablKey = e.KartablKey,
+        TitleFa = e.TitleFa,
+        Description = e.Description,
+        OwnerSubdomain = e.OwnerSubdomain
+    };
+
+    public static Kartabl ToEntity(KartablDto d) => new()
+    {
+        Id = d.Id,
+        KartablKey = d.KartablKey,
+        TitleFa = d.TitleFa,
+        Description = d.Description,
+        OwnerSubdomain = d.OwnerSubdomain
+    };
+
+    public static KartablRoutingRuleDto ToDto(KartablRoutingRule e) => new()
+    {
+        Id = e.Id,
+        RuleKey = e.RuleKey,
+        OwnerSubdomain = e.OwnerSubdomain,
+        Priority = e.Priority,
+        FromKartablId = e.FromKartablId,
+        TargetKartablId = e.TargetKartablId,
+        ConditionIdsJson = e.ConditionIdsJson,
+        TitleFa = e.TitleFa,
+        Description = e.Description
+    };
+
+    public static KartablRoutingRule ToEntity(KartablRoutingRuleDto d) => new()
+    {
+        Id = d.Id,
+        RuleKey = d.RuleKey,
+        OwnerSubdomain = d.OwnerSubdomain,
+        Priority = d.Priority,
+        FromKartablId = d.FromKartablId,
+        TargetKartablId = d.TargetKartablId,
+        ConditionIdsJson = d.ConditionIdsJson,
+        TitleFa = d.TitleFa,
+        Description = d.Description
+    };
     public static TriggerDefinitionDto ToDto(this TriggerDefinition e) => new()
     {
         Id = e.Id,

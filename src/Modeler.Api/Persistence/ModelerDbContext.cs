@@ -31,6 +31,9 @@ public sealed class ModelerDbContext : DbContext
     public DbSet<ScenarioInputArtifact> ScenarioInputArtifacts => Set<ScenarioInputArtifact>();
     public DbSet<ScenarioFactChange> ScenarioFactChanges => Set<ScenarioFactChange>();
 
+    // Scenario availability in kartabls
+    public DbSet<ScenarioKartabl> ScenarioKartabls => Set<ScenarioKartabl>();
+
     public DbSet<ScenarioDecision> ScenarioDecisions => Set<ScenarioDecision>();
     public DbSet<ScenarioDecisionOption> ScenarioDecisionOptions => Set<ScenarioDecisionOption>();
     public DbSet<DecisionOptionFactChange> DecisionOptionFactChanges => Set<DecisionOptionFactChange>();
@@ -43,6 +46,11 @@ public sealed class ModelerDbContext : DbContext
 
     public DbSet<ScenarioAction> ScenarioActions => Set<ScenarioAction>();
 
+    // --- Kartabl ---
+    public DbSet<Kartabl> Kartabls => Set<Kartabl>();
+
+    public DbSet<KartablRoutingRule> KartablRoutingRules => Set<KartablRoutingRule>();
+
      
     #endregion
 
@@ -53,6 +61,7 @@ public sealed class ModelerDbContext : DbContext
         // composite keys
         mb.Entity<ConditionFactUsed>().HasKey(x => new { x.ConditionId, x.FactId });
         mb.Entity<ScenarioPrecondition>().HasKey(x => new { x.ScenarioId, x.ConditionId });
+        mb.Entity<ScenarioKartabl>().HasKey(x => new { x.ScenarioId, x.KartablId });
 
         // Identity PKs (int)
         mb.Entity<DictionaryTerm>().Property(x => x.Id).ValueGeneratedOnAdd();
@@ -71,6 +80,11 @@ public sealed class ModelerDbContext : DbContext
         mb.Entity<ScenarioDecision>().Property(x => x.Id).ValueGeneratedOnAdd();
         mb.Entity<ScenarioDecisionOption>().Property(x => x.Id).ValueGeneratedOnAdd();
         mb.Entity<DecisionOptionFactChange>().Property(x => x.Id).ValueGeneratedOnAdd();
+
+        // Kartabl
+        mb.Entity<Kartabl>().Property(x => x.Id).ValueGeneratedOnAdd();
+
+        mb.Entity<KartablRoutingRule>().Property(x => x.Id).ValueGeneratedOnAdd();
 
         // uniques
         mb.Entity<DictionaryTerm>().HasIndex(x => x.TermKey).IsUnique();
@@ -91,6 +105,24 @@ public sealed class ModelerDbContext : DbContext
         mb.Entity<Scenario>().HasIndex(x => x.ScenarioKey).IsUnique();
         mb.Entity<ScenarioDecision>().HasIndex(x => new { x.ScenarioId, x.DecisionKey }).IsUnique();
         mb.Entity<ScenarioDecisionOption>().HasIndex(x => new { x.ScenarioDecisionId, x.OptionKey }).IsUnique();
+
+        // Kartabl
+        mb.Entity<Kartabl>().HasIndex(x => x.KartablKey).IsUnique();
+
+        mb.Entity<KartablRoutingRule>().HasIndex(x => x.RuleKey).IsUnique();
+
+        // Kartabl routing relationships
+        mb.Entity<KartablRoutingRule>()
+            .HasOne(x => x.TargetKartabl)
+            .WithMany()
+            .HasForeignKey(x => x.TargetKartablId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        mb.Entity<KartablRoutingRule>()
+            .HasOne(x => x.FromKartabl)
+            .WithMany()
+            .HasForeignKey(x => x.FromKartablId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         // relationships (Restrict to avoid multi cascade paths)
         mb.Entity<Fact>()
@@ -151,6 +183,18 @@ public sealed class ModelerDbContext : DbContext
             .HasOne<Scenario>()
             .WithMany()
             .HasForeignKey(x => x.ScenarioId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        mb.Entity<ScenarioKartabl>()
+            .HasOne<Scenario>()
+            .WithMany()
+            .HasForeignKey(x => x.ScenarioId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        mb.Entity<ScenarioKartabl>()
+            .HasOne<Kartabl>()
+            .WithMany()
+            .HasForeignKey(x => x.KartablId)
             .OnDelete(DeleteBehavior.Restrict);
 
         mb.Entity<ScenarioPrecondition>()
