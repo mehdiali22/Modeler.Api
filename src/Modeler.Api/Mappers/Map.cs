@@ -177,6 +177,7 @@ public static class Map
     {
         Id = e.Id,
         ProcessId = e.ProcessId,
+        SubProcessId = e.SubProcessId,
         StageKey = e.StageKey,
         TitleFa = e.TitleFa,
         Description = e.Description,
@@ -187,6 +188,7 @@ public static class Map
     {
         Id = d.Id,
         ProcessId = d.ProcessId,
+        SubProcessId = d.SubProcessId,
         StageKey = d.StageKey,
         TitleFa = d.TitleFa,
         Description = d.Description,
@@ -235,6 +237,7 @@ public static class Map
         ScenarioId = e.ScenarioId,
         FactId = e.FactId,
         Op = e.Op,
+        SortOrder = e.SortOrder,
         Value = e.Value
     };
 
@@ -244,6 +247,7 @@ public static class Map
         ScenarioId = d.ScenarioId,
         FactId = d.FactId,
         Op = d.Op,
+        SortOrder = d.SortOrder,
         Value = d.Value
     };
 
@@ -273,7 +277,6 @@ public static class Map
         TitleFa = e.TitleFa,
         ConditionIdsJson = e.ConditionIdsJson,
         ActionIdsJson = e.ActionIdsJson,
-        ProducedEventIdsJson = e.ProducedEventIdsJson
     };
 
     public static ScenarioDecisionOption ToEntity(ScenarioDecisionOptionDto d) => new()
@@ -284,7 +287,6 @@ public static class Map
         TitleFa = d.TitleFa,
         ConditionIdsJson = d.ConditionIdsJson,
         ActionIdsJson = d.ActionIdsJson,
-        ProducedEventIdsJson = d.ProducedEventIdsJson
     };
 
     public static DecisionOptionFactChangeDto ToDto(DecisionOptionFactChange e) => new()
@@ -293,6 +295,7 @@ public static class Map
         ScenarioDecisionOptionId = e.ScenarioDecisionOptionId,
         FactId = e.FactId,
         Op = e.Op,
+        SortOrder = e.SortOrder,
         Value = e.Value
     };
 
@@ -302,6 +305,7 @@ public static class Map
         ScenarioDecisionOptionId = d.ScenarioDecisionOptionId,
         FactId = d.FactId,
         Op = d.Op,
+        SortOrder = d.SortOrder,
         Value = d.Value
     };
 
@@ -349,50 +353,50 @@ public static class Map
         TitleFa = d.TitleFa,
         Description = d.Description
     };
-    public static TriggerDefinitionDto ToDto(this TriggerDefinition e) => new()
+
+    // --- WorkItem (runtime) ---
+    public static WorkItemDto ToDto(WorkItem e) => new()
     {
         Id = e.Id,
-        TriggerKey = e.TriggerKey,
-        TitleFa = e.TitleFa,
-        Description = e.Description
+        WorkItemKey = e.WorkItemKey,
+        OwnerSubdomain = e.OwnerSubdomain,
+        ReferenceNo = e.ReferenceNo,
+        CaseId = e.CaseId,
+        CurrentKartablId = e.CurrentKartablId,
+        FactsJson = e.FactsJson,
+        CaseStatus = e.CaseStatus,
+        Title = e.Title
     };
 
-    public static TriggerDefinition ToEntity(this TriggerDefinitionDto d) => new()
+    public static WorkItem ToEntity(WorkItemDto d) => new()
     {
         Id = d.Id,
-        TriggerKey = d.TriggerKey,
-        TitleFa = d.TitleFa,
-        Description = d.Description
+        WorkItemKey = d.WorkItemKey,
+        OwnerSubdomain = d.OwnerSubdomain,
+        ReferenceNo = d.ReferenceNo,
+        CaseId = d.CaseId,
+        CurrentKartablId = d.CurrentKartablId,
+        FactsJson = d.FactsJson,
+        CaseStatus = d.CaseStatus,
+        Title = d.Title
     };
 
-    public static EventDefinitionDto ToDto(this EventDefinition e) => new()
+    // --- WorkItemAction (runtime) ---
+    public static WorkItemActionDto ToDto(WorkItemAction e) => new()
     {
         Id = e.Id,
-        EventKey = e.EventKey,
-        TitleFa = e.TitleFa,
-        Description = e.Description
-    };
-
-    public static EventDefinition ToEntity(this EventDefinitionDto d) => new()
-    {
-        Id = d.Id,
-        EventKey = d.EventKey,
-        TitleFa = d.TitleFa,
-        Description = d.Description
-    };
-
-    public static EventTriggerLinkDto ToDto(this EventTriggerLink e) => new()
-    {
-        Id = e.Id,
-        EventId = e.EventId,
-        TriggerId = e.TriggerId
-    };
-
-    public static EventTriggerLink ToEntity(this EventTriggerLinkDto d) => new()
-    {
-        Id = d.Id,
-        EventId = d.EventId,
-        TriggerId = d.TriggerId
+        WorkItemId = e.WorkItemId,
+        ActionId = e.ActionId,
+        Source = e.Source,
+        SourceScenarioId = e.SourceScenarioId,
+        SourceDecisionOptionId = e.SourceDecisionOptionId,
+        ParamsJson = e.ParamsJson,
+        Status = e.Status,
+        AttemptCount = e.AttemptCount,
+        LastAttemptAtUtc = e.LastAttemptAtUtc,
+        CompletedAtUtc = e.CompletedAtUtc,
+        FailedAtUtc = e.FailedAtUtc,
+        LastError = e.LastError
     };
 
 }

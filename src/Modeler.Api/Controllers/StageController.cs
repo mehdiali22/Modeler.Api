@@ -19,11 +19,12 @@ public sealed class StageController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<List<StageDto>>> GetAll([FromQuery] int? processId)
+    public async Task<ActionResult<List<StageDto>>> GetAll([FromQuery] int? processId, [FromQuery] int? subProcessId)
     {
         IQueryable<Stage> q = _db.Stages.AsNoTracking();
         
         if (processId.HasValue) q = q.Where(x => x.ProcessId == processId.Value);
+        if (subProcessId.HasValue) q = q.Where(x => x.SubProcessId == subProcessId.Value);
 
         var rows = await q.OrderBy(x => x.StageKey).ToListAsync();
         return rows.Select(Map.ToDto).ToList();
@@ -43,6 +44,16 @@ public sealed class StageController : ControllerBase
         // برای Create، Id رو نادیده می‌گیریم تا Identity تولید کنه
         input.Id = 0;
 
+        var processExists = await _db.Processes.AnyAsync(x => x.Id == input.ProcessId);
+        if (!processExists) return BadRequest("processId not found");
+
+        if (input.SubProcessId.HasValue)
+        {
+            var subProcess = await _db.SubProcesses.AsNoTracking().FirstOrDefaultAsync(x => x.Id == input.SubProcessId.Value);
+            if (subProcess == null) return BadRequest("subProcessId not found");
+            if (subProcess.ProcessId != input.ProcessId) return BadRequest("subProcess must belong to selected process");
+        }
+
         var entity = Map.ToEntity(input);
         _db.Stages.Add(entity);
         await _db.SaveChangesAsync();
@@ -57,6 +68,16 @@ public sealed class StageController : ControllerBase
 
         var exists = await CrudHelpers.ExistsAsync<Stage>(_db, id);
         if (!exists) return NotFound();
+
+        var processExists = await _db.Processes.AnyAsync(x => x.Id == input.ProcessId);
+        if (!processExists) return BadRequest("processId not found");
+
+        if (input.SubProcessId.HasValue)
+        {
+            var subProcess = await _db.SubProcesses.AsNoTracking().FirstOrDefaultAsync(x => x.Id == input.SubProcessId.Value);
+            if (subProcess == null) return BadRequest("subProcessId not found");
+            if (subProcess.ProcessId != input.ProcessId) return BadRequest("subProcess must belong to selected process");
+        }
 
         var entity = Map.ToEntity(input);
         _db.Entry(entity).State = EntityState.Modified;

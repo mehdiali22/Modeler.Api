@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace Modeler.Api.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialCreate : Migration
+    public partial class AddWorkItemActionOutboxStatus : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -83,6 +83,24 @@ namespace Modeler.Api.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "Kartabls",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    KartablKey = table.Column<string>(type: "nvarchar(150)", maxLength: 150, nullable: false),
+                    TitleFa = table.Column<string>(type: "nvarchar(300)", maxLength: 300, nullable: true),
+                    Description = table.Column<string>(type: "nvarchar(2000)", maxLength: 2000, nullable: true),
+                    OwnerSubdomain = table.Column<string>(type: "nvarchar(150)", maxLength: 150, nullable: true),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Kartabls", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Processes",
                 columns: table => new
                 {
@@ -153,6 +171,68 @@ namespace Modeler.Api.Migrations
                         name: "FK_Facts_Artifacts_ArtifactId",
                         column: x => x.ArtifactId,
                         principalTable: "Artifacts",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "KartablRoutingRules",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    RuleKey = table.Column<string>(type: "nvarchar(150)", maxLength: 150, nullable: false),
+                    OwnerSubdomain = table.Column<string>(type: "nvarchar(150)", maxLength: 150, nullable: true),
+                    Priority = table.Column<int>(type: "int", nullable: false),
+                    FromKartablId = table.Column<int>(type: "int", nullable: true),
+                    TargetKartablId = table.Column<int>(type: "int", nullable: false),
+                    ConditionIdsJson = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    TitleFa = table.Column<string>(type: "nvarchar(300)", maxLength: 300, nullable: true),
+                    Description = table.Column<string>(type: "nvarchar(2000)", maxLength: 2000, nullable: true),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_KartablRoutingRules", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_KartablRoutingRules_Kartabls_FromKartablId",
+                        column: x => x.FromKartablId,
+                        principalTable: "Kartabls",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_KartablRoutingRules_Kartabls_TargetKartablId",
+                        column: x => x.TargetKartablId,
+                        principalTable: "Kartabls",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "WorkItems",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    WorkItemKey = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    OwnerSubdomain = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    ReferenceNo = table.Column<string>(type: "nvarchar(450)", nullable: true),
+                    CaseId = table.Column<string>(type: "nvarchar(450)", nullable: true),
+                    CurrentKartablId = table.Column<int>(type: "int", nullable: true),
+                    FactsJson = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    CaseStatus = table.Column<string>(type: "nvarchar(450)", nullable: true),
+                    Title = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_WorkItems", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_WorkItems_Kartabls_CurrentKartablId",
+                        column: x => x.CurrentKartablId,
+                        principalTable: "Kartabls",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                 });
@@ -256,6 +336,44 @@ namespace Modeler.Api.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "WorkItemActions",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    WorkItemId = table.Column<int>(type: "int", nullable: false),
+                    ActionId = table.Column<int>(type: "int", nullable: false),
+                    Source = table.Column<string>(type: "nvarchar(30)", maxLength: 30, nullable: false),
+                    SourceScenarioId = table.Column<int>(type: "int", nullable: false),
+                    SourceDecisionOptionId = table.Column<int>(type: "int", nullable: true),
+                    ParamsJson = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    Status = table.Column<string>(type: "nvarchar(30)", maxLength: 30, nullable: false, defaultValue: "Pending"),
+                    AttemptCount = table.Column<int>(type: "int", nullable: false),
+                    LastAttemptAtUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    CompletedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    FailedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    LastError = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_WorkItemActions", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_WorkItemActions_Actions_ActionId",
+                        column: x => x.ActionId,
+                        principalTable: "Actions",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_WorkItemActions_WorkItems_WorkItemId",
+                        column: x => x.WorkItemId,
+                        principalTable: "WorkItems",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Scenarios",
                 columns: table => new
                 {
@@ -276,6 +394,35 @@ namespace Modeler.Api.Migrations
                         name: "FK_Scenarios_Stages_StageId",
                         column: x => x.StageId,
                         principalTable: "Stages",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "ScenarioActions",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    ScenarioId = table.Column<int>(type: "int", nullable: false),
+                    ActionId = table.Column<int>(type: "int", nullable: false),
+                    ParamsJson = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ScenarioActions", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_ScenarioActions_Actions_ActionId",
+                        column: x => x.ActionId,
+                        principalTable: "Actions",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_ScenarioActions_Scenarios_ScenarioId",
+                        column: x => x.ScenarioId,
+                        principalTable: "Scenarios",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                 });
@@ -364,6 +511,30 @@ namespace Modeler.Api.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "ScenarioKartabls",
+                columns: table => new
+                {
+                    ScenarioId = table.Column<int>(type: "int", nullable: false),
+                    KartablId = table.Column<int>(type: "int", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ScenarioKartabls", x => new { x.ScenarioId, x.KartablId });
+                    table.ForeignKey(
+                        name: "FK_ScenarioKartabls_Kartabls_KartablId",
+                        column: x => x.KartablId,
+                        principalTable: "Kartabls",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_ScenarioKartabls_Scenarios_ScenarioId",
+                        column: x => x.ScenarioId,
+                        principalTable: "Scenarios",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "ScenarioPreconditions",
                 columns: table => new
                 {
@@ -398,7 +569,6 @@ namespace Modeler.Api.Migrations
                     TitleFa = table.Column<string>(type: "nvarchar(300)", maxLength: 300, nullable: true),
                     ConditionIdsJson = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     ActionIdsJson = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    ProducedEventIdsJson = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     CreatedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
@@ -516,9 +686,42 @@ namespace Modeler.Api.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
+                name: "IX_KartablRoutingRules_FromKartablId",
+                table: "KartablRoutingRules",
+                column: "FromKartablId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_KartablRoutingRules_RuleKey",
+                table: "KartablRoutingRules",
+                column: "RuleKey",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_KartablRoutingRules_TargetKartablId",
+                table: "KartablRoutingRules",
+                column: "TargetKartablId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Kartabls_KartablKey",
+                table: "Kartabls",
+                column: "KartablKey",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Processes_ProcessKey",
                 table: "Processes",
                 column: "ProcessKey",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ScenarioActions_ActionId",
+                table: "ScenarioActions",
+                column: "ActionId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ScenarioActions_ScenarioId_ActionId",
+                table: "ScenarioActions",
+                columns: new[] { "ScenarioId", "ActionId" },
                 unique: true);
 
             migrationBuilder.CreateIndex(
@@ -554,6 +757,11 @@ namespace Modeler.Api.Migrations
                 column: "ScenarioId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_ScenarioKartabls_KartablId",
+                table: "ScenarioKartabls",
+                column: "KartablId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_ScenarioPreconditions_ConditionId",
                 table: "ScenarioPreconditions",
                 column: "ConditionId");
@@ -580,14 +788,57 @@ namespace Modeler.Api.Migrations
                 table: "SubProcesses",
                 columns: new[] { "ProcessId", "SubProcessKey" },
                 unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_WorkItemActions_ActionId",
+                table: "WorkItemActions",
+                column: "ActionId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_WorkItemActions_Status",
+                table: "WorkItemActions",
+                column: "Status");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_WorkItemActions_Status_CreatedAtUtc",
+                table: "WorkItemActions",
+                columns: new[] { "Status", "CreatedAtUtc" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_WorkItemActions_WorkItemId",
+                table: "WorkItemActions",
+                column: "WorkItemId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_WorkItems_CaseId",
+                table: "WorkItems",
+                column: "CaseId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_WorkItems_CurrentKartablId_OwnerSubdomain_CaseStatus_UpdatedAtUtc",
+                table: "WorkItems",
+                columns: new[] { "CurrentKartablId", "OwnerSubdomain", "CaseStatus", "UpdatedAtUtc" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_WorkItems_CurrentKartablId_ReferenceNo",
+                table: "WorkItems",
+                columns: new[] { "CurrentKartablId", "ReferenceNo" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_WorkItems_ReferenceNo",
+                table: "WorkItems",
+                column: "ReferenceNo");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_WorkItems_WorkItemKey",
+                table: "WorkItems",
+                column: "WorkItemKey",
+                unique: true);
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropTable(
-                name: "Actions");
-
             migrationBuilder.DropTable(
                 name: "ConditionFactUsed");
 
@@ -601,10 +852,19 @@ namespace Modeler.Api.Migrations
                 name: "FactEnumValues");
 
             migrationBuilder.DropTable(
+                name: "KartablRoutingRules");
+
+            migrationBuilder.DropTable(
+                name: "ScenarioActions");
+
+            migrationBuilder.DropTable(
                 name: "ScenarioFactChanges");
 
             migrationBuilder.DropTable(
                 name: "ScenarioInputArtifacts");
+
+            migrationBuilder.DropTable(
+                name: "ScenarioKartabls");
 
             migrationBuilder.DropTable(
                 name: "ScenarioPreconditions");
@@ -613,7 +873,7 @@ namespace Modeler.Api.Migrations
                 name: "SubProcesses");
 
             migrationBuilder.DropTable(
-                name: "Actors");
+                name: "WorkItemActions");
 
             migrationBuilder.DropTable(
                 name: "ScenarioDecisionOptions");
@@ -625,10 +885,22 @@ namespace Modeler.Api.Migrations
                 name: "Conditions");
 
             migrationBuilder.DropTable(
+                name: "Actions");
+
+            migrationBuilder.DropTable(
+                name: "WorkItems");
+
+            migrationBuilder.DropTable(
                 name: "ScenarioDecisions");
 
             migrationBuilder.DropTable(
+                name: "Actors");
+
+            migrationBuilder.DropTable(
                 name: "Artifacts");
+
+            migrationBuilder.DropTable(
+                name: "Kartabls");
 
             migrationBuilder.DropTable(
                 name: "Scenarios");

@@ -4,6 +4,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Modeler.Api.Persistence;
+using Modeler.Api.Services;
 using System.Text.Json.Serialization;
 
 namespace Modeler.Api;
@@ -29,6 +30,8 @@ public sealed class Startup
 
         services.AddDbContext<ModelerDbContext>(opt =>
                 opt.UseSqlServer(_cfg.GetConnectionString("Default")));
+
+        services.AddScoped<KartablRoutingEngine>();
 
         services.AddEndpointsApiExplorer();
         services.AddSwaggerGen();

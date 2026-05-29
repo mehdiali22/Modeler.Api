@@ -12,8 +12,8 @@ using Modeler.Api.Persistence;
 namespace Modeler.Api.Migrations
 {
     [DbContext(typeof(ModelerDbContext))]
-    [Migration("20260222180244_AddScenarioKartabls2")]
-    partial class AddScenarioKartabls2
+    [Migration("20260517143452_AddWorkItemActionOutboxStatus")]
+    partial class AddWorkItemActionOutboxStatus
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -278,68 +278,6 @@ namespace Modeler.Api.Migrations
                     b.ToTable("DictionaryTerms");
                 });
 
-            modelBuilder.Entity("Modeler.Api.Domain.EventDefinition", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Description")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("EventKey")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("TitleFa")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("UpdatedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("EventKey")
-                        .IsUnique();
-
-                    b.ToTable("Events");
-                });
-
-            modelBuilder.Entity("Modeler.Api.Domain.EventTriggerLink", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("EventId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("TriggerId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("UpdatedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("TriggerId");
-
-                    b.HasIndex("EventId", "TriggerId")
-                        .IsUnique();
-
-                    b.ToTable("EventTriggerLinks");
-                });
-
             modelBuilder.Entity("Modeler.Api.Domain.Fact", b =>
                 {
                     b.Property<int>("Id")
@@ -581,9 +519,6 @@ namespace Modeler.Api.Migrations
                         .HasMaxLength(300)
                         .HasColumnType("nvarchar(300)");
 
-                    b.Property<int?>("TriggerId")
-                        .HasColumnType("int");
-
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasColumnType("datetime2");
 
@@ -593,8 +528,6 @@ namespace Modeler.Api.Migrations
                         .IsUnique();
 
                     b.HasIndex("StageId");
-
-                    b.HasIndex("TriggerId");
 
                     b.ToTable("Scenarios");
                 });
@@ -691,9 +624,6 @@ namespace Modeler.Api.Migrations
                         .IsRequired()
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)");
-
-                    b.Property<string>("ProducedEventIdsJson")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("ScenarioDecisionId")
                         .HasColumnType("int");
@@ -812,36 +742,6 @@ namespace Modeler.Api.Migrations
                     b.ToTable("ScenarioPreconditions");
                 });
 
-            modelBuilder.Entity("Modeler.Api.Domain.ScenarioProducedEvent", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("EventId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("ScenarioId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("UpdatedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("EventId");
-
-                    b.HasIndex("ScenarioId", "EventId")
-                        .IsUnique();
-
-                    b.ToTable("ScenarioProducedEvents");
-                });
-
             modelBuilder.Entity("Modeler.Api.Domain.Stage", b =>
                 {
                     b.Property<int>("Id")
@@ -924,7 +824,7 @@ namespace Modeler.Api.Migrations
                     b.ToTable("SubProcesses");
                 });
 
-            modelBuilder.Entity("Modeler.Api.Domain.TriggerDefinition", b =>
+            modelBuilder.Entity("Modeler.Api.Domain.WorkItem", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -932,28 +832,121 @@ namespace Modeler.Api.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("CaseId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("CaseStatus")
+                        .HasColumnType("nvarchar(450)");
+
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("Description")
+                    b.Property<int?>("CurrentKartablId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("FactsJson")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("TitleFa")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("TriggerKey")
+                    b.Property<string>("OwnerSubdomain")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("ReferenceNo")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Title")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("WorkItemKey")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("TriggerKey")
+                    b.HasIndex("CaseId");
+
+                    b.HasIndex("ReferenceNo");
+
+                    b.HasIndex("WorkItemKey")
                         .IsUnique();
 
-                    b.ToTable("Triggers");
+                    b.HasIndex("CurrentKartablId", "ReferenceNo");
+
+                    b.HasIndex("CurrentKartablId", "OwnerSubdomain", "CaseStatus", "UpdatedAtUtc");
+
+                    b.ToTable("WorkItems");
+                });
+
+            modelBuilder.Entity("Modeler.Api.Domain.WorkItemAction", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ActionId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("AttemptCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("CompletedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("FailedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("LastAttemptAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("LastError")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ParamsJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<int?>("SourceDecisionOptionId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SourceScenarioId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)")
+                        .HasDefaultValue("Pending");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("WorkItemId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActionId");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("WorkItemId");
+
+                    b.HasIndex("Status", "CreatedAtUtc");
+
+                    b.ToTable("WorkItemActions");
                 });
 
             modelBuilder.Entity("Modeler.Api.Domain.Actions", b =>
@@ -999,25 +992,6 @@ namespace Modeler.Api.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Modeler.Api.Domain.EventTriggerLink", b =>
-                {
-                    b.HasOne("Modeler.Api.Domain.EventDefinition", "Event")
-                        .WithMany()
-                        .HasForeignKey("EventId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("Modeler.Api.Domain.TriggerDefinition", "Trigger")
-                        .WithMany()
-                        .HasForeignKey("TriggerId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Event");
-
-                    b.Navigation("Trigger");
-                });
-
             modelBuilder.Entity("Modeler.Api.Domain.Fact", b =>
                 {
                     b.HasOne("Modeler.Api.Domain.Artifact", null)
@@ -1061,13 +1035,6 @@ namespace Modeler.Api.Migrations
                         .HasForeignKey("StageId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
-
-                    b.HasOne("Modeler.Api.Domain.TriggerDefinition", "Trigger")
-                        .WithMany()
-                        .HasForeignKey("TriggerId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.Navigation("Trigger");
                 });
 
             modelBuilder.Entity("Modeler.Api.Domain.ScenarioAction", b =>
@@ -1167,25 +1134,6 @@ namespace Modeler.Api.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Modeler.Api.Domain.ScenarioProducedEvent", b =>
-                {
-                    b.HasOne("Modeler.Api.Domain.EventDefinition", "Event")
-                        .WithMany()
-                        .HasForeignKey("EventId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("Modeler.Api.Domain.Scenario", "Scenario")
-                        .WithMany()
-                        .HasForeignKey("ScenarioId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Event");
-
-                    b.Navigation("Scenario");
-                });
-
             modelBuilder.Entity("Modeler.Api.Domain.Stage", b =>
                 {
                     b.HasOne("Modeler.Api.Domain.Process", null)
@@ -1202,6 +1150,35 @@ namespace Modeler.Api.Migrations
                         .HasForeignKey("ProcessId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Modeler.Api.Domain.WorkItem", b =>
+                {
+                    b.HasOne("Modeler.Api.Domain.Kartabl", "CurrentKartabl")
+                        .WithMany()
+                        .HasForeignKey("CurrentKartablId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("CurrentKartabl");
+                });
+
+            modelBuilder.Entity("Modeler.Api.Domain.WorkItemAction", b =>
+                {
+                    b.HasOne("Modeler.Api.Domain.Actions", "Action")
+                        .WithMany()
+                        .HasForeignKey("ActionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Modeler.Api.Domain.WorkItem", "WorkItem")
+                        .WithMany()
+                        .HasForeignKey("WorkItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Action");
+
+                    b.Navigation("WorkItem");
                 });
 #pragma warning restore 612, 618
         }

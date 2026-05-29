@@ -1,7 +1,12 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Modeler.Api.Domain;
+using EntityStateModel = Modeler.Api.Domain.EntityStatee;
 using Modeler.Api.Persistence;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace Modeler.Api.Controllers;
 
@@ -31,10 +36,16 @@ public sealed class ToolsController : ControllerBase
             Actors: await _db.Actors.AsNoTracking().ToListAsync(),
             Actions: await _db.Actions.AsNoTracking().ToListAsync(),
 
-            Triggers: await _db.Triggers.AsNoTracking().ToListAsync(),
-            Events: await _db.Events.AsNoTracking().ToListAsync(),
-            EventTriggerLinks: await _db.EventTriggerLinks.AsNoTracking().ToListAsync(),
+            Kartabls: await _db.Kartabls.AsNoTracking().ToListAsync(),
+            KartablRoutingRules: await _db.KartablRoutingRules.AsNoTracking().ToListAsync(),
 
+            WorkItems: await _db.WorkItems.AsNoTracking().ToListAsync(),
+
+            WorkItemActions: await _db.WorkItemActions.AsNoTracking().ToListAsync(),
+
+            EntityStates: await _db.EntityStates.AsNoTracking().ToListAsync(),
+            ActionStateTransitions: await _db.ActionStateTransitions.AsNoTracking().ToListAsync(),
+                        
             Processes: await _db.Processes.AsNoTracking().ToListAsync(),
             SubProcesses: await _db.SubProcesses.AsNoTracking().ToListAsync(),
             Stages: await _db.Stages.AsNoTracking().ToListAsync(),
@@ -43,9 +54,8 @@ public sealed class ToolsController : ControllerBase
             ScenarioInputArtifacts: await _db.ScenarioInputArtifacts.AsNoTracking().ToListAsync(),
             ScenarioFactChanges: await _db.ScenarioFactChanges.AsNoTracking().ToListAsync(),
 
-            // ✅ already added previously
-            ScenarioProducedEvents: await _db.ScenarioProducedEvents.AsNoTracking().ToListAsync(),
-
+            ScenarioKartabls: await _db.ScenarioKartabls.AsNoTracking().ToListAsync(),
+             
             // ✅ NEW: scenario-level actions
             ScenarioActions: await _db.ScenarioActions.AsNoTracking().ToListAsync(),
 
@@ -92,10 +102,19 @@ public sealed class ToolsController : ControllerBase
         UpsertMany(_db.Actors, input.Actors);
         UpsertMany(_db.Actions, input.Actions);
 
-        // parents first
-        UpsertMany(_db.Triggers, input.Triggers);
-        UpsertMany(_db.Events, input.Events);
+        UpsertMany(_db.Kartabls, input.Kartabls);
+        UpsertMany(_db.KartablRoutingRules, input.KartablRoutingRules);
 
+        // runtime-ish; depends on Kartabls
+        UpsertMany(_db.WorkItems, input.WorkItems);
+
+        // runtime-ish; depends on WorkItems + Actions
+        UpsertMany(_db.WorkItemActions, input.WorkItemActions ?? new List<WorkItemAction>());
+
+        UpsertMany(_db.EntityStates, input.EntityStates ?? new List<EntityStateModel>());
+        UpsertMany(_db.ActionStateTransitions, input.ActionStateTransitions ?? new List<ActionStateTransition>());
+
+        
         UpsertMany(_db.Processes, input.Processes);
         UpsertMany(_db.SubProcesses, input.SubProcesses);
         UpsertMany(_db.Stages, input.Stages);
@@ -108,9 +127,11 @@ public sealed class ToolsController : ControllerBase
         UpsertMany(_db.ScenarioInputArtifacts, input.ScenarioInputArtifacts);
         UpsertMany(_db.ScenarioFactChanges, input.ScenarioFactChanges);
 
-        // needs scenarios + events
-        UpsertMany(_db.ScenarioProducedEvents, input.ScenarioProducedEvents);
+        foreach (var r in input.ScenarioKartabls)
+            if (!await _db.ScenarioKartabls.AnyAsync(x => x.ScenarioId == r.ScenarioId && x.KartablId == r.KartablId))
+                _db.ScenarioKartabls.Add(r);
 
+       
         // ✅ NEW: needs scenarios + actions
         UpsertMany(_db.ScenarioActions, input.ScenarioActions);
 
@@ -118,8 +139,7 @@ public sealed class ToolsController : ControllerBase
         UpsertMany(_db.ScenarioDecisionOptions, input.ScenarioDecisionOptions);
         UpsertMany(_db.DecisionOptionFactChanges, input.DecisionOptionFactChanges);
 
-        // links last
-        UpsertMany(_db.EventTriggerLinks, input.EventTriggerLinks);
+        // links last        
 
         await _db.SaveChangesAsync();
         return Ok();
@@ -137,10 +157,14 @@ public sealed class ToolsController : ControllerBase
         var actors = await _db.Actors.AsNoTracking().ToListAsync();
         var actions = await _db.Actions.AsNoTracking().ToListAsync();
 
-        var triggers = await _db.Triggers.AsNoTracking().ToListAsync();
-        var events = await _db.Events.AsNoTracking().ToListAsync();
-        var links = await _db.EventTriggerLinks.AsNoTracking().ToListAsync();
+        var kartabls = await _db.Kartabls.AsNoTracking().ToListAsync();
+        var kartablRules = await _db.KartablRoutingRules.AsNoTracking().ToListAsync();
 
+        var workItems = await _db.WorkItems.AsNoTracking().ToListAsync();
+
+        var workItemActions = await _db.WorkItemActions.AsNoTracking().ToListAsync();
+
+        
         var opts = await _db.ScenarioDecisionOptions.AsNoTracking().ToListAsync();
         var optFcs = await _db.DecisionOptionFactChanges.AsNoTracking().ToListAsync();
         var scFcs = await _db.ScenarioFactChanges.AsNoTracking().ToListAsync();
@@ -150,30 +174,55 @@ public sealed class ToolsController : ControllerBase
         var cfUsed = await _db.ConditionFactUsed.AsNoTracking().ToListAsync();
         var factEnums = await _db.FactEnumValues.AsNoTracking().ToListAsync();
         var subps = await _db.SubProcesses.AsNoTracking().ToListAsync();
-
-        var scPes = await _db.ScenarioProducedEvents.AsNoTracking().ToListAsync();
+                
         var scActs = await _db.ScenarioActions.AsNoTracking().ToListAsync(); // ✅ NEW
+
+        var scKartabls = await _db.ScenarioKartabls.AsNoTracking().ToListAsync();
 
         var artIds = artifacts.Select(x => x.Id).ToHashSet();
         var factIds = facts.Select(x => x.Id).ToHashSet();
         var condIds = conditions.Select(x => x.Id).ToHashSet();
         var procIds = processes.Select(x => x.Id).ToHashSet();
         var stageIds = stages.Select(x => x.Id).ToHashSet();
+        var subProcessIds = subps.Select(x => x.Id).ToHashSet();
         var scIds = scenarios.Select(x => x.Id).ToHashSet();
         var actorIds = actors.Select(x => x.Id).ToHashSet();
         var actionIds = actions.Select(x => x.Id).ToHashSet(); // ✅ NEW for scenario actions
 
+        var workItemIds = workItems.Select(x => x.Id).ToHashSet();
+
+        var kartablIds = kartabls.Select(x => x.Id).ToHashSet();
+
         var optIds = opts.Select(x => x.Id).ToHashSet();
         var scDecisionIds = scDecisions.Select(x => x.Id).ToHashSet();
 
-        var triggerIds = triggers.Select(x => x.Id).ToHashSet();
-        var eventIds = events.Select(x => x.Id).ToHashSet();
 
         var issues = new List<ValidationIssue>();
+
+        // Required standard facts for the Status+Kartabl model
+        if (!facts.Any(f => f.FactKey == "Asnadm"))
+            issues.Add(new ValidationIssue("Fact", null, "ERROR: Required Fact is missing: FactKey=Asnadm"));
+
+        if (!facts.Any(f => f.FactKey == "CurrentKartablId"))
+            issues.Add(new ValidationIssue("Fact", null, "ERROR: Required Fact is missing: FactKey=CurrentKartablId"));
 
         foreach (var f in facts)
             if (!artIds.Contains(f.ArtifactId))
                 issues.Add(new("Fact", f.Id, $"artifactId '{f.ArtifactId}' not found"));
+
+        var validWorkItemActionStatuses = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "Pending", "Done", "Failed" };
+
+        foreach (var wia in workItemActions)
+        {
+            if (!workItemIds.Contains(wia.WorkItemId))
+                issues.Add(new("WorkItemAction", wia.Id, $"workItemId '{wia.WorkItemId}' not found"));
+            if (!actionIds.Contains(wia.ActionId))
+                issues.Add(new("WorkItemAction", wia.Id, $"actionId '{wia.ActionId}' not found"));
+            if (string.IsNullOrWhiteSpace(wia.Status) || !validWorkItemActionStatuses.Contains(wia.Status))
+                issues.Add(new("WorkItemAction", wia.Id, $"invalid status '{wia.Status}'. Allowed: Pending, Done, Failed"));
+            if (wia.Status == "Failed" && string.IsNullOrWhiteSpace(wia.LastError))
+                issues.Add(new("WorkItemAction", wia.Id, "WARN: failed action has no LastError"));
+        }
 
         foreach (var fe in factEnums)
             if (!factIds.Contains(fe.FactId))
@@ -188,21 +237,21 @@ public sealed class ToolsController : ControllerBase
         }
 
         foreach (var st in stages)
+        {
             if (!procIds.Contains(st.ProcessId))
                 issues.Add(new("Stage", st.Id, $"processId '{st.ProcessId}' not found"));
+            if (st.SubProcessId.HasValue && !subProcessIds.Contains(st.SubProcessId.Value))
+                issues.Add(new("Stage", st.Id, $"subProcessId '{st.SubProcessId}' not found"));
+            var sp = st.SubProcessId.HasValue ? subps.FirstOrDefault(x => x.Id == st.SubProcessId.Value) : null;
+            if (sp != null && sp.ProcessId != st.ProcessId)
+                issues.Add(new("Stage", st.Id, "subProcessId belongs to another process"));
+        }
 
         foreach (var sp in subps)
             if (!procIds.Contains(sp.ProcessId))
                 issues.Add(new("SubProcess", sp.Id, $"processId '{sp.ProcessId}' not found"));
 
-        foreach (var sc in scenarios)
-        {
-            if (!stageIds.Contains(sc.StageId))
-                issues.Add(new("Scenario", sc.Id, $"stageId '{sc.StageId}' not found"));
-
-            if (sc.TriggerId.HasValue && !triggerIds.Contains(sc.TriggerId.Value))
-                issues.Add(new("Scenario", sc.Id, $"triggerId '{sc.TriggerId}' not found"));
-        }
+        
 
         foreach (var pre in scPre)
         {
@@ -252,21 +301,9 @@ public sealed class ToolsController : ControllerBase
                 issues.Add(new("DecisionOptionFactChange", ofc.Id, $"factId '{ofc.FactId}' not found"));
         }
 
-        foreach (var l in links)
-        {
-            if (!eventIds.Contains(l.EventId))
-                issues.Add(new("EventTriggerLink", l.Id, $"eventId '{l.EventId}' not found"));
-            if (!triggerIds.Contains(l.TriggerId))
-                issues.Add(new("EventTriggerLink", l.Id, $"triggerId '{l.TriggerId}' not found"));
-        }
+       
 
-        foreach (var pe in scPes)
-        {
-            if (!scIds.Contains(pe.ScenarioId))
-                issues.Add(new("ScenarioProducedEvent", pe.Id, $"scenarioId '{pe.ScenarioId}' not found"));
-            if (!eventIds.Contains(pe.EventId))
-                issues.Add(new("ScenarioProducedEvent", pe.Id, $"eventId '{pe.EventId}' not found"));
-        }
+ 
 
         // ✅ NEW: ScenarioActions validation
         foreach (var sa in scActs)
@@ -275,6 +312,36 @@ public sealed class ToolsController : ControllerBase
                 issues.Add(new("ScenarioAction", sa.Id, $"scenarioId '{sa.ScenarioId}' not found"));
             if (!actionIds.Contains(sa.ActionId))
                 issues.Add(new("ScenarioAction", sa.Id, $"actionId '{sa.ActionId}' not found"));
+        }
+
+        foreach (var k in kartabls)
+        {
+            if (string.IsNullOrWhiteSpace(k.KartablKey))
+                issues.Add(new("Kartabl", k.Id, "kartablKey is empty"));
+        }
+
+        foreach (var rr in kartablRules)
+        {
+            if (rr.FromKartablId.HasValue && !kartablIds.Contains(rr.FromKartablId.Value))
+                issues.Add(new("KartablRoutingRule", rr.Id, $"fromKartablId '{rr.FromKartablId}' not found"));
+            if (!kartablIds.Contains(rr.TargetKartablId))
+                issues.Add(new("KartablRoutingRule", rr.Id, $"targetKartablId '{rr.TargetKartablId}' not found"));
+        }
+
+        foreach (var wi in workItems)
+        {
+            if (string.IsNullOrWhiteSpace(wi.WorkItemKey))
+                issues.Add(new("WorkItem", wi.Id, "workItemKey is empty"));
+            if (!kartablIds.Contains((int)wi.CurrentKartablId))
+                issues.Add(new("WorkItem", wi.Id, $"currentKartablId '{wi.CurrentKartablId}' not found"));
+        }
+
+        foreach (var sk in scKartabls)
+        {
+            if (!scIds.Contains(sk.ScenarioId))
+                issues.Add(new("ScenarioKartabl", null, $"scenarioId '{sk.ScenarioId}' not found"));
+            if (!kartablIds.Contains(sk.KartablId))
+                issues.Add(new("ScenarioKartabl", null, $"kartablId '{sk.KartablId}' not found"));
         }
 
         return issues;
@@ -288,22 +355,30 @@ public sealed class ToolsController : ControllerBase
         _db.ScenarioDecisions.RemoveRange(_db.ScenarioDecisions);
 
         _db.ScenarioActions.RemoveRange(_db.ScenarioActions);               // ✅ NEW
-        _db.ScenarioProducedEvents.RemoveRange(_db.ScenarioProducedEvents); // ✅ existing
+
+        // runtime-ish children
+        _db.WorkItemActions.RemoveRange(_db.WorkItemActions);
+        _db.ActionStateTransitions.RemoveRange(_db.ActionStateTransitions);
+        _db.EntityStates.RemoveRange(_db.EntityStates);
+        
+
+        _db.ScenarioKartabls.RemoveRange(_db.ScenarioKartabls);
 
         _db.ScenarioFactChanges.RemoveRange(_db.ScenarioFactChanges);
         _db.ScenarioInputArtifacts.RemoveRange(_db.ScenarioInputArtifacts);
         _db.ScenarioPreconditions.RemoveRange(_db.ScenarioPreconditions);
         _db.ConditionFactUsed.RemoveRange(_db.ConditionFactUsed);
 
-        _db.EventTriggerLinks.RemoveRange(_db.EventTriggerLinks);
-
         _db.Scenarios.RemoveRange(_db.Scenarios);
         _db.Stages.RemoveRange(_db.Stages);
         _db.SubProcesses.RemoveRange(_db.SubProcesses);
         _db.Processes.RemoveRange(_db.Processes);
+        
+        _db.KartablRoutingRules.RemoveRange(_db.KartablRoutingRules);
 
-        _db.Events.RemoveRange(_db.Events);
-        _db.Triggers.RemoveRange(_db.Triggers);
+        // runtime-ish; depends on Kartabls
+        _db.WorkItems.RemoveRange(_db.WorkItems);
+        _db.Kartabls.RemoveRange(_db.Kartabls);
 
         _db.Actions.RemoveRange(_db.Actions);
         _db.Actors.RemoveRange(_db.Actors);
@@ -328,9 +403,18 @@ public sealed class ToolsController : ControllerBase
         await InsertWithIdentity("Actors", input.Actors);
         await InsertWithIdentity("Actions", input.Actions);
 
-        await InsertWithIdentity("Triggers", input.Triggers);
-        await InsertWithIdentity("Events", input.Events);
+        await InsertWithIdentity("Kartabls", input.Kartabls);
+        await InsertWithIdentity("KartablRoutingRules", input.KartablRoutingRules);
 
+        // runtime-ish; after Kartabls exist
+        await InsertWithIdentity("WorkItems", input.WorkItems);
+
+        // runtime-ish; after WorkItems + Actions exist
+        await InsertWithIdentity("WorkItemActions", input.WorkItemActions ?? new List<WorkItemAction>());
+
+        await InsertWithIdentity("EntityStates", input.EntityStates ?? new List<EntityStateModel>());
+        await InsertWithIdentity("ActionStateTransitions", input.ActionStateTransitions ?? new List<ActionStateTransition>());
+                
         await InsertWithIdentity("Processes", input.Processes);
         await InsertWithIdentity("SubProcesses", input.SubProcesses);
         await InsertWithIdentity("Stages", input.Stages);
@@ -342,7 +426,9 @@ public sealed class ToolsController : ControllerBase
         await InsertWithIdentity("ScenarioInputArtifacts", input.ScenarioInputArtifacts);
         await InsertWithIdentity("ScenarioFactChanges", input.ScenarioFactChanges);
 
-        await InsertWithIdentity("ScenarioProducedEvents", input.ScenarioProducedEvents);
+        _db.ScenarioKartabls.AddRange(input.ScenarioKartabls);
+        await _db.SaveChangesAsync();
+               
 
         // ✅ NEW: after Scenarios + Actions exist
         await InsertWithIdentity("ScenarioActions", input.ScenarioActions);
@@ -350,8 +436,6 @@ public sealed class ToolsController : ControllerBase
         await InsertWithIdentity("ScenarioDecisions", input.ScenarioDecisions);
         await InsertWithIdentity("ScenarioDecisionOptions", input.ScenarioDecisionOptions);
         await InsertWithIdentity("DecisionOptionFactChanges", input.DecisionOptionFactChanges);
-
-        await InsertWithIdentity("EventTriggerLinks", input.EventTriggerLinks);
 
         await tx.CommitAsync();
     }
@@ -404,9 +488,15 @@ public sealed record ExportBundle(
     List<Actor> Actors,
     List<Actions> Actions,
 
-    List<TriggerDefinition> Triggers,
-    List<EventDefinition> Events,
-    List<EventTriggerLink> EventTriggerLinks,
+    List<Kartabl> Kartabls,
+    List<KartablRoutingRule> KartablRoutingRules,
+
+    List<WorkItem> WorkItems,
+
+    List<WorkItemAction>? WorkItemActions,
+
+    List<EntityStateModel>? EntityStates,
+    List<ActionStateTransition>? ActionStateTransitions,
 
     List<Process> Processes,
     List<SubProcess> SubProcesses,
@@ -415,7 +505,8 @@ public sealed record ExportBundle(
     List<ScenarioPrecondition> ScenarioPreconditions,
     List<ScenarioInputArtifact> ScenarioInputArtifacts,
     List<ScenarioFactChange> ScenarioFactChanges,
-    List<ScenarioProducedEvent> ScenarioProducedEvents,
+
+    List<ScenarioKartabl> ScenarioKartabls, 
 
     // ✅ NEW
     List<ScenarioAction> ScenarioActions,

@@ -16,5 +16,4 @@ public sealed class ScenarioDecisionOption : BaseEntity
     // این‌ها رو JSON نگه می‌داریم تا UI رو پوشش بده.
     public string? ConditionIdsJson { get; set; } // [int,...]
     public string? ActionIdsJson { get; set; } // [int,...]
-    public string? ProducedEventIdsJson { get; set; } // [int,...]
 }

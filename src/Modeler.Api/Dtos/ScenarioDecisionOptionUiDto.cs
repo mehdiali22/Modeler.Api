@@ -1,4 +1,6 @@
-﻿public sealed class ScenarioDecisionOptionUiDto
+﻿using System.Collections.Generic;
+
+public sealed class ScenarioDecisionOptionUiDto
 {
     public int Id { get; set; }
     public int ScenarioDecisionId { get; set; }
@@ -7,5 +9,5 @@
 
     public List<int> ConditionIds { get; set; } = new();
     public List<int> ActionIds { get; set; } = new();
-    public List<int> ProducedEventIds { get; set; } = new();
+    
 }

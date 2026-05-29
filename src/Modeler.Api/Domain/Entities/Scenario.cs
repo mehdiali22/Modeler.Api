@@ -16,8 +16,6 @@ public sealed class Scenario : BaseEntity
     public int StageId { get; set; }
 
     [MaxLength(150)]
-    public string? OwnerSubdomain { get; set; }
-    public int? TriggerId { get; set; }
-    public TriggerDefinition? Trigger { get; set; }
+    public string? OwnerSubdomain { get; set; } 
 
 }

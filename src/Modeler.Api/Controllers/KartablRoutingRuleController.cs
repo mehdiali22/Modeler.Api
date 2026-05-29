@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Modeler.Api.Domain;
@@ -44,6 +45,9 @@ public sealed class KartablRoutingRuleController : ControllerBase
         input.Id = 0;
         input.ConditionIdsJson = string.IsNullOrWhiteSpace(input.ConditionIdsJson) ? "[]" : input.ConditionIdsJson;
 
+        var validationError = await ValidateInputAsync(input);
+        if (validationError != null) return validationError;
+
         var entity = Map.ToEntity(input);
         _db.KartablRoutingRules.Add(entity);
         await _db.SaveChangesAsync();
@@ -59,6 +63,9 @@ public sealed class KartablRoutingRuleController : ControllerBase
 
         var exists = await CrudHelpers.ExistsAsync<KartablRoutingRule>(_db, id);
         if (!exists) return NotFound();
+
+        var validationError = await ValidateInputAsync(input);
+        if (validationError != null) return validationError;
 
         var entity = Map.ToEntity(input);
         _db.Entry(entity).State = EntityState.Modified;
@@ -76,5 +83,53 @@ public sealed class KartablRoutingRuleController : ControllerBase
         _db.KartablRoutingRules.Remove(row);
         await _db.SaveChangesAsync();
         return NoContent();
+    }
+
+    private async Task<ActionResult<KartablRoutingRuleDto>?> ValidateInputAsync(KartablRoutingRuleDto input)
+    {
+        if (string.IsNullOrWhiteSpace(input.RuleKey))
+            return BadRequest("RuleKey is required.");
+
+        if (input.TargetKartablId <= 0)
+            return BadRequest("TargetKartablId is required.");
+
+        var targetExists = await _db.Kartabls.AsNoTracking().AnyAsync(k => k.Id == input.TargetKartablId);
+        if (!targetExists)
+            return BadRequest($"TargetKartablId not found: {input.TargetKartablId}");
+
+        if (input.FromKartablId.HasValue)
+        {
+            var fromExists = await _db.Kartabls.AsNoTracking().AnyAsync(k => k.Id == input.FromKartablId.Value);
+            if (!fromExists)
+                return BadRequest($"FromKartablId not found: {input.FromKartablId.Value}");
+        }
+
+        List<int>? conditionIds;
+        try
+        {
+            conditionIds = JsonSerializer.Deserialize<List<int>>(input.ConditionIdsJson);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest($"ConditionIdsJson must be a JSON array of integers. {ex.Message}");
+        }
+
+        conditionIds ??= new List<int>();
+        conditionIds = conditionIds.Where(id => id > 0).Distinct().ToList();
+        input.ConditionIdsJson = JsonSerializer.Serialize(conditionIds);
+
+        if (conditionIds.Count > 0)
+        {
+            var existingIds = await _db.Conditions.AsNoTracking()
+                .Where(c => conditionIds.Contains(c.Id))
+                .Select(c => c.Id)
+                .ToListAsync();
+
+            var missing = conditionIds.Except(existingIds).ToList();
+            if (missing.Count > 0)
+                return BadRequest($"ConditionIdsJson references missing condition(s): [{string.Join(",", missing)}].");
+        }
+
+        return null;
     }
 }

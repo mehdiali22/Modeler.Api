@@ -6,6 +6,8 @@ public sealed class Stage : BaseEntity
 {
     public int ProcessId { get; set; }
 
+    public int? SubProcessId { get; set; }
+
     [MaxLength(150)]
     public string StageKey { get; set; } = default!;
 

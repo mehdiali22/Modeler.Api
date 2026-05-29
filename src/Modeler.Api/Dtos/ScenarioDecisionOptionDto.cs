@@ -8,5 +8,4 @@ public sealed class ScenarioDecisionOptionDto
     public string? TitleFa { get; set; }
     public string? ConditionIdsJson { get; set; }
     public string? ActionIdsJson { get; set; }
-    public string? ProducedEventIdsJson { get; set; }
 }

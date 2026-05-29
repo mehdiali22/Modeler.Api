@@ -8,5 +8,6 @@ public sealed class DecisionOptionFactChangeDto
     public int ScenarioDecisionOptionId { get; set; }
     public int FactId { get; set; }
     public FactChangeOp Op { get; set; }
+    public int SortOrder { get; set; }
     public string? Value { get; set; }
 }

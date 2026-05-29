@@ -1,6 +1,10 @@
 using Microsoft.EntityFrameworkCore;
-using Modeler.Api.Domain; 
+using Modeler.Api.Domain;
+using EntityStateModel = Modeler.Api.Domain.EntityStatee;
+using System;
 using System.Reflection.Emit;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Modeler.Api.Persistence;
 
@@ -38,18 +42,19 @@ public sealed class ModelerDbContext : DbContext
     public DbSet<ScenarioDecisionOption> ScenarioDecisionOptions => Set<ScenarioDecisionOption>();
     public DbSet<DecisionOptionFactChange> DecisionOptionFactChanges => Set<DecisionOptionFactChange>();
 
-    public DbSet<TriggerDefinition> Triggers => Set<TriggerDefinition>();
-    public DbSet<EventDefinition> Events => Set<EventDefinition>();
-    public DbSet<EventTriggerLink> EventTriggerLinks => Set<EventTriggerLink>();
-
-    public DbSet<ScenarioProducedEvent> ScenarioProducedEvents => Set<ScenarioProducedEvent>();
-
     public DbSet<ScenarioAction> ScenarioActions => Set<ScenarioAction>();
 
     // --- Kartabl ---
     public DbSet<Kartabl> Kartabls => Set<Kartabl>();
 
     public DbSet<KartablRoutingRule> KartablRoutingRules => Set<KartablRoutingRule>();
+
+    public DbSet<WorkItem> WorkItems => Set<WorkItem>();
+
+    // Runtime action log/queue
+    public DbSet<WorkItemAction> WorkItemActions => Set<WorkItemAction>();
+    public DbSet<EntityStateModel> EntityStates => Set<EntityStatee>();
+    public DbSet<ActionStateTransition> ActionStateTransitions => Set<ActionStateTransition>();
 
      
     #endregion
@@ -86,6 +91,16 @@ public sealed class ModelerDbContext : DbContext
 
         mb.Entity<KartablRoutingRule>().Property(x => x.Id).ValueGeneratedOnAdd();
 
+        // WorkItem (runtime)
+        mb.Entity<WorkItem>().Property(x => x.Id).ValueGeneratedOnAdd();
+
+        // WorkItemAction (runtime)
+        mb.Entity<WorkItemAction>().Property(x => x.Id).ValueGeneratedOnAdd();
+
+
+        mb.Entity<EntityStateModel>().Property(x => x.Id).ValueGeneratedOnAdd();
+        mb.Entity<ActionStateTransition>().Property(x => x.Id).ValueGeneratedOnAdd();
+
         // uniques
         mb.Entity<DictionaryTerm>().HasIndex(x => x.TermKey).IsUnique();
 
@@ -100,6 +115,7 @@ public sealed class ModelerDbContext : DbContext
 
         mb.Entity<Process>().HasIndex(x => x.ProcessKey).IsUnique();
         mb.Entity<Stage>().HasIndex(x => new { x.ProcessId, x.StageKey }).IsUnique();
+        mb.Entity<Stage>().HasIndex(x => x.SubProcessId);
         mb.Entity<SubProcess>().HasIndex(x => new { x.ProcessId, x.SubProcessKey }).IsUnique();
 
         mb.Entity<Scenario>().HasIndex(x => x.ScenarioKey).IsUnique();
@@ -110,6 +126,49 @@ public sealed class ModelerDbContext : DbContext
         mb.Entity<Kartabl>().HasIndex(x => x.KartablKey).IsUnique();
 
         mb.Entity<KartablRoutingRule>().HasIndex(x => x.RuleKey).IsUnique();
+
+
+        mb.Entity<EntityStateModel>().HasIndex(x => new { x.ArtifactId, x.StateKey }).IsUnique();
+        mb.Entity<ActionStateTransition>().HasIndex(x => x.ScenarioId);
+        mb.Entity<ActionStateTransition>().HasIndex(x => x.ActionId);
+        mb.Entity<ActionStateTransition>().HasIndex(x => x.FromStateId);
+        mb.Entity<ActionStateTransition>().HasIndex(x => x.ToStateId);
+
+        // WorkItem
+        mb.Entity<WorkItem>().HasIndex(x => x.WorkItemKey).IsUnique();
+
+        // Search-friendly indexes
+        mb.Entity<WorkItem>().HasIndex(x => x.ReferenceNo);
+        mb.Entity<WorkItem>().HasIndex(x => x.CaseId);
+        mb.Entity<WorkItem>().HasIndex(x => new { x.CurrentKartablId, x.ReferenceNo });
+
+        // Queue-friendly index (CurrentKartabl + optional filters)
+        mb.Entity<WorkItem>().HasIndex(x => new { x.CurrentKartablId, x.OwnerSubdomain, x.CaseStatus, x.UpdatedAtUtc });
+
+        // WorkItemAction
+        mb.Entity<WorkItemAction>().Property(x => x.Status).HasMaxLength(30).HasDefaultValue("Pending");
+        mb.Entity<WorkItemAction>().Property(x => x.Source).HasMaxLength(30);
+        mb.Entity<WorkItemAction>().HasIndex(x => x.WorkItemId);
+        mb.Entity<WorkItemAction>().HasIndex(x => x.Status);
+        mb.Entity<WorkItemAction>().HasIndex(x => new { x.Status, x.CreatedAtUtc });
+
+        mb.Entity<WorkItem>()
+            .HasOne(x => x.CurrentKartabl)
+            .WithMany()
+            .HasForeignKey(x => x.CurrentKartablId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        mb.Entity<WorkItemAction>()
+            .HasOne(x => x.WorkItem)
+            .WithMany()
+            .HasForeignKey(x => x.WorkItemId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        mb.Entity<WorkItemAction>()
+            .HasOne(x => x.Action)
+            .WithMany()
+            .HasForeignKey(x => x.ActionId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         // Kartabl routing relationships
         mb.Entity<KartablRoutingRule>()
@@ -123,6 +182,12 @@ public sealed class ModelerDbContext : DbContext
             .WithMany()
             .HasForeignKey(x => x.FromKartablId)
             .OnDelete(DeleteBehavior.Restrict);
+
+
+
+
+
+
 
         // relationships (Restrict to avoid multi cascade paths)
         mb.Entity<Fact>()
@@ -165,6 +230,12 @@ public sealed class ModelerDbContext : DbContext
             .HasOne<Process>()
             .WithMany()
             .HasForeignKey(x => x.ProcessId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        mb.Entity<Stage>()
+            .HasOne<SubProcess>()
+            .WithMany()
+            .HasForeignKey(x => x.SubProcessId)
             .OnDelete(DeleteBehavior.Restrict);
 
         mb.Entity<SubProcess>()
@@ -250,53 +321,7 @@ public sealed class ModelerDbContext : DbContext
             .WithMany()
             .HasForeignKey(x => x.FactId)
             .OnDelete(DeleteBehavior.Restrict);
-
-
-        mb.Entity<TriggerDefinition>()
-        .HasIndex(x => x.TriggerKey)
-        .IsUnique();
-
-        mb.Entity<EventDefinition>()
-            .HasIndex(x => x.EventKey)
-            .IsUnique();
-
-        mb.Entity<EventTriggerLink>()
-            .HasIndex(x => new { x.EventId, x.TriggerId })
-            .IsUnique();
-
-        mb.Entity<EventTriggerLink>()
-            .HasOne(x => x.Event)
-            .WithMany()
-            .HasForeignKey(x => x.EventId)
-            .OnDelete(DeleteBehavior.Restrict);
-
-        mb.Entity<EventTriggerLink>()
-            .HasOne(x => x.Trigger)
-            .WithMany()
-            .HasForeignKey(x => x.TriggerId)
-            .OnDelete(DeleteBehavior.Restrict);
-
-        mb.Entity<Scenario>()
-        .HasOne(x => x.Trigger)
-        .WithMany()
-        .HasForeignKey(x => x.TriggerId)
-        .OnDelete(DeleteBehavior.Restrict);
-
-        mb.Entity<ScenarioProducedEvent>()
-    .HasIndex(x => new { x.ScenarioId, x.EventId })
-    .IsUnique();
-
-        mb.Entity<ScenarioProducedEvent>()
-            .HasOne(x => x.Scenario)
-            .WithMany()
-            .HasForeignKey(x => x.ScenarioId)
-            .OnDelete(DeleteBehavior.Restrict);
-
-        mb.Entity<ScenarioProducedEvent>()
-            .HasOne(x => x.Event)
-            .WithMany()
-            .HasForeignKey(x => x.EventId)
-            .OnDelete(DeleteBehavior.Restrict);
+          
 
         mb.Entity<ScenarioAction>()
     .HasIndex(x => new { x.ScenarioId, x.ActionId })

@@ -1,4 +1,5 @@
 ﻿using Modeler.Api.Dtos;
+using System.Collections.Generic;
 
 public sealed class ScenarioUiDto
 {
@@ -7,8 +8,7 @@ public sealed class ScenarioUiDto
     public string? TitleFa { get; set; }
     public string? Description { get; set; }
 
-    public int StageId { get; set; }
-    public int? TriggerId { get; set; }
+    public int StageId { get; set; } 
 
     public List<int> PreconditionIds { get; set; } = new();
 

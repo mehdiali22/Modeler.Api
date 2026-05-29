@@ -4,6 +4,7 @@ public sealed class StageDto
 {
     public int Id { get; set; }
     public int ProcessId { get; set; }
+    public int? SubProcessId { get; set; }
     public string StageKey { get; set; } = default!;
     public string? TitleFa { get; set; }
     public string? Description { get; set; }

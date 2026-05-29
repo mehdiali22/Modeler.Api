@@ -1,4 +1,5 @@
 ﻿using Modeler.Api.Domain;
+using System.Collections.Generic;
 
 namespace Modeler.Api.Dtos;
 
@@ -11,8 +12,7 @@ public sealed class ScenarioDto
 
     public int StageId { get; set; }
     public string? OwnerSubdomain { get; set; }
-
-    public int? TriggerId { get; set; }
+     
 
     // UI: kartablIds (Scenario is available in these kartabls)
     public List<int> KartablIds { get; set; } = new();
@@ -22,10 +22,7 @@ public sealed class ScenarioDto
 
     // UI: factChanges (scenario-level)
     public List<ScenarioFactChangeDto> FactChanges { get; set; } = new();
-
-    // UI: producedEventIds (scenario-level)
-    public List<int> ProducedEventIds { get; set; } = new();
-
+    
     // UI: actions (scenario-level)
     public List<ScenarioActionRefDto> Actions { get; set; } = new();
 }

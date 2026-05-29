@@ -1,3 +1,5 @@
+using System;
+
 namespace Modeler.Api.Domain;
 
 public abstract class BaseEntity
